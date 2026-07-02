@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+.Python
+build/
+dist/
+.eggs/
+
+# 虚拟环境
+venv/
+env/
+.venv/
+.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# 项目特有
+# 收件人数据（包含个人信息，不应上传）
+recipients.csv
+
+# 运行日志
+mass_send_*.log
+*.log
+
+# 用户配置
+config.json
+config.yaml
+config.yml
+
+# 测试产物
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# 系统
+.DS_Store
+desktop.ini

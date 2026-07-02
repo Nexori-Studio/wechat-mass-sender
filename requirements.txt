@@ -1,0 +1,15 @@
+# 微信 PC 版自动群发脚本依赖
+# 安装：pip install -r requirements.txt
+# 适用：Windows 10/11 + Python 3.8+ + 微信 PC 版（3.x / 4.x）
+
+# GUI 自动化：模拟键盘鼠标操作
+pyautogui>=0.9.54
+
+# 剪贴板操作：支持中文内容
+pyperclip>=1.8.2
+
+# Windows 窗口操作：枚举窗口、激活前台、获取尺寸
+pywin32>=306
+
+# 图像支持（pyautogui 间接依赖）
+Pillow>=10.0.0
