@@ -29,50 +29,51 @@ from wechat_core import (
 )
 
 # ============================================================
-# 主题：深色专业风（升级版）
+# 主题：深色专业风（精美版）
 # ============================================================
 
 THEME = {
-    "bg":              "#1a1d23",
-    "bg_elevated":     "#22262e",
-    "bg_input":        "#2a2f38",
-    "bg_hover":        "#323844",
-    "bg_pressed":      "#2d333d",
-    "bg_active":       "#1e222a",
+    "bg":              "#0d1117",
+    "bg_elevated":     "#161b22",
+    "bg_input":        "#21262d",
+    "bg_hover":        "#30363d",
+    "bg_pressed":      "#21262d",
+    "bg_active":       "#1c2128",
 
-    "fg":              "#e6e6e6",
-    "fg_muted":        "#8b95a7",
-    "fg_subtle":       "#5a6273",
-    "fg_success":      "#3ecf8e",
-    "fg_warn":         "#f0b429",
-    "fg_error":        "#ef4444",
+    "fg":              "#f0f6fc",
+    "fg_muted":        "#8b949e",
+    "fg_subtle":       "#6e7681",
+    "fg_success":      "#3fb950",
+    "fg_warn":         "#d29922",
+    "fg_error":        "#f85149",
 
-    "border":          "#2f3540",
-    "border_focus":    "#3d8bf2",
-    "border_light":    "#3a4049",
+    "border":          "#30363d",
+    "border_focus":    "#58a6ff",
+    "border_light":    "#3d4450",
 
-    "accent":          "#3d8bf2",
-    "accent_hover":    "#5294f5",
-    "accent_active":   "#2b7ae0",
-    "accent_glow":     "#3d8bf233",
-    "success":         "#3ecf8e",
-    "success_hover":   "#5ce8a8",
-    "warn":            "#f0b429",
-    "warn_hover":      "#f5c958",
-    "error":           "#ef4444",
-    "error_hover":     "#f56565",
+    "accent":          "#58a6ff",
+    "accent_hover":    "#79b8ff",
+    "accent_active":   "#1f6feb",
+    "accent_glow":     "#58a6ff40",
+    "accent_shadow":   "#58a6ff20",
+    "success":         "#3fb950",
+    "success_hover":   "#56d364",
+    "warn":            "#d29922",
+    "warn_hover":      "#e3b341",
+    "error":           "#f85149",
+    "error_hover":     "#ff7b72",
 
-    "log_bg":          "#0f1115",
-    "log_fg":          "#d4d4d4",
-    "log_success":     "#3ecf8e",
-    "log_error":       "#ef4444",
-    "log_warn":        "#f0b429",
-    "log_highlight":   "#3d8bf2",
+    "log_bg":          "#010409",
+    "log_fg":          "#c9d1d9",
+    "log_success":     "#3fb950",
+    "log_error":       "#f85149",
+    "log_warn":        "#d29922",
+    "log_highlight":   "#58a6ff",
 }
 
-APP_TITLE = "微信自动群发工具"
-APP_W = 1020
-APP_H = 800
+APP_TITLE = "微信群发助手"
+APP_W = 1040
+APP_H = 820
 RECIPIENTS_FILE = "recipients.csv"
 
 
@@ -88,35 +89,35 @@ class Toast(tk.Toplevel):
         self.withdraw()
         self.overrideredirect(True)
         self.transient(parent)
-        self.configure(bg=THEME["bg_active"])
+        self.configure(bg=THEME["bg_elevated"])
 
         types = {
-            "info":   (THEME["accent"], "📄"),
+            "info":   (THEME["accent"], "🔵"),
             "success":(THEME["success"], "✓"),
             "warn":   (THEME["warn"], "⚠️"),
             "error":  (THEME["error"], "✗"),
         }
         color, icon = types.get(type, types["info"])
 
-        frame = tk.Frame(self, bg=THEME["bg_active"], padx=16, pady=12)
+        frame = tk.Frame(self, bg=THEME["bg_elevated"], padx=20, pady=14)
         frame.pack(fill="both")
 
-        icon_lbl = tk.Label(frame, text=icon, bg=THEME["bg_active"],
-                            font=("Segoe UI Emoji", 14), padx=10)
+        line = tk.Frame(frame, width=4, bg=color)
+        line.pack(side="left", fill="y")
+
+        icon_lbl = tk.Label(frame, text=icon, bg=THEME["bg_elevated"],
+                            fg=color, font=("Segoe UI Emoji", 16), padx=12)
         icon_lbl.pack(side="left")
 
-        text_lbl = tk.Label(frame, text=message, bg=THEME["bg_active"],
-                            fg=THEME["fg"], font=("Microsoft YaHei", 10),
-                            wraplength=300, justify="left")
+        text_lbl = tk.Label(frame, text=message, bg=THEME["bg_elevated"],
+                            fg=THEME["fg"], font=("Microsoft YaHei", 11),
+                            wraplength=320, justify="left")
         text_lbl.pack(side="left", fill="both")
-
-        line = tk.Frame(frame, width=4, bg=color)
-        line.pack(side="right", fill="y")
 
         self.update_idletasks()
         pw, ph = self.winfo_width(), self.winfo_height()
         px = (parent.winfo_width() - pw) // 2
-        py = parent.winfo_height() - ph - 40
+        py = parent.winfo_height() - ph - 50
         self.geometry(f"+{parent.winfo_x()+px}+{parent.winfo_y()+py}")
 
         self.deiconify()
@@ -129,7 +130,7 @@ class Toast(tk.Toplevel):
 # ============================================================
 
 class DarkButton(tk.Canvas):
-    """自绘按钮：支持悬停/按下/禁用/发光效果"""
+    """自绘按钮：支持悬停/按下/禁用/发光效果，圆角设计"""
 
     def __init__(self, parent, text, command=None, style="default", width=90, height=32, **kw):
         super().__init__(parent, width=width, height=height,
@@ -140,6 +141,7 @@ class DarkButton(tk.Canvas):
         self._style = style
         self._cw, self._ch = width, height
         self._pressed = False
+        self._hover = False
         self.bind("<Enter>", self._on_enter)
         self.bind("<Leave>", self._on_leave)
         self.bind("<ButtonPress-1>", self._on_press)
@@ -148,31 +150,42 @@ class DarkButton(tk.Canvas):
 
     def _colors(self):
         if not self._enabled:
-            return THEME["bg_elevated"], THEME["fg_subtle"], THEME["border"]
+            return THEME["bg_elevated"], THEME["fg_subtle"], THEME["border"], None
         if self._pressed:
             if self._style == "accent":
-                return THEME["accent_active"], "#ffffff", THEME["accent_active"]
+                return THEME["accent_active"], "#ffffff", THEME["accent_active"], THEME["accent_shadow"]
             if self._style == "danger":
-                return THEME["error_hover"], "#ffffff", THEME["error_hover"]
+                return THEME["error_hover"], "#ffffff", THEME["error_hover"], None
             if self._style == "success":
-                return THEME["success"], "#1a1d23", THEME["success"]
-            return THEME["bg_pressed"], THEME["fg"], THEME["border_light"]
+                return THEME["success"], "#0d1117", THEME["success"], None
+            return THEME["bg_pressed"], THEME["fg"], THEME["border_light"], None
+        if self._hover:
+            if self._style == "accent":
+                return THEME["accent_hover"], "#ffffff", THEME["accent_hover"], THEME["accent_glow"]
+            if self._style == "danger":
+                return THEME["error_hover"], "#ffffff", THEME["error_hover"], None
+            if self._style == "success":
+                return THEME["success_hover"], "#0d1117", THEME["success_hover"], None
+            return THEME["bg_hover"], THEME["fg"], THEME["border_light"], None
         if self._style == "accent":
-            return THEME["accent"], "#ffffff", THEME["accent"]
+            return THEME["accent"], "#ffffff", THEME["accent"], THEME["accent_shadow"]
         if self._style == "danger":
-            return THEME["error"], "#ffffff", THEME["error"]
+            return THEME["error"], "#ffffff", THEME["error"], None
         if self._style == "success":
-            return THEME["success"], "#1a1d23", THEME["success"]
-        return THEME["bg_elevated"], THEME["fg"], THEME["border"]
+            return THEME["success"], "#0d1117", THEME["success"], None
+        return THEME["bg_elevated"], THEME["fg"], THEME["border"], None
 
     def _render(self):
         try:
             self.delete("all")
         except tk.TclError:
             return
-        bg, fg, border = self._colors()
-        r = 6
-        x1, y1, x2, y2 = 1, 1, self._cw - 1, self._ch - 1
+        bg, fg, border, glow = self._colors()
+        r = 8
+        x1, y1, x2, y2 = 0, 0, self._cw, self._ch
+
+        if glow:
+            self.create_oval(2, 2, self._cw - 2, self._ch - 2, fill=glow, outline="")
 
         points = [
             x1 + r, y1, x2 - r, y1,
@@ -184,26 +197,21 @@ class DarkButton(tk.Canvas):
             x1, y2 - r, x1, y1 + r,
             x1, y1 + r, x1, y1, x1 + r, y1,
         ]
-        self.create_polygon(points, smooth=True, fill=bg, outline=border, width=1)
+        self.create_polygon(points, smooth=True, fill=bg, outline=border, width=1.5)
 
         offset_y = 1 if self._pressed else 0
+        font_size = 10 if self._ch <= 32 else 11
         self.create_text(self._cw / 2, self._ch / 2 + offset_y, text=self._text,
-                         fill=fg, font=("Microsoft YaHei", 10, "bold"))
+                         fill=fg, font=("Microsoft YaHei", font_size, "bold"))
 
     def _on_enter(self, _):
         if not self._enabled:
             return
-        if self._style == "accent":
-            self.configure(bg=THEME["accent_hover"])
-        elif self._style == "danger":
-            self.configure(bg=THEME["error_hover"])
-        elif self._style == "success":
-            self.configure(bg=THEME["success_hover"])
-        else:
-            self.configure(bg=THEME["bg_hover"])
+        self._hover = True
         self._render()
 
     def _on_leave(self, _):
+        self._hover = False
         self._pressed = False
         try:
             self.configure(bg=THEME["bg"])
@@ -242,8 +250,8 @@ class DarkEntry(tk.Entry):
     def __init__(self, parent, textvariable=None, width=10, **kw):
         super().__init__(parent, textvariable=textvariable, width=width,
                          bg=THEME["bg_input"], fg=THEME["fg"],
-                         insertbackground=THEME["fg"],
-                         relief="flat", bd=0, highlightthickness=1,
+                         insertbackground=THEME["accent"],
+                         relief="flat", bd=0, highlightthickness=2,
                          highlightcolor=THEME["border_focus"],
                          highlightbackground=THEME["border"],
                          font=("Consolas", 10), **kw)
@@ -253,15 +261,17 @@ class DarkText(scrolledtext.ScrolledText):
     def __init__(self, parent, **kw):
         super().__init__(parent,
                          bg=THEME["log_bg"], fg=THEME["log_fg"],
-                         insertbackground="#ffffff",
-                         relief="flat", bd=0, highlightthickness=0,
+                         insertbackground=THEME["accent"],
+                         relief="flat", bd=0, highlightthickness=1,
+                         highlightcolor=THEME["border"],
+                         highlightbackground=THEME["border"],
                          font=("Consolas", 10), wrap="word",
                          **kw)
 
 
 class ProgressBar(tk.Canvas):
-    """自绘进度条"""
-    def __init__(self, parent, width=200, height=6, **kw):
+    """自绘进度条：带圆角和发光效果"""
+    def __init__(self, parent, width=200, height=8, **kw):
         super().__init__(parent, width=width, height=height,
                          bg=THEME["bg_elevated"], highlightthickness=0, bd=0, **kw)
         self._width = width
@@ -271,12 +281,29 @@ class ProgressBar(tk.Canvas):
 
     def _render(self):
         self.delete("all")
-        bg_rect = self.create_rectangle(0, 0, self._width, self._height,
-                                        fill=THEME["bg_input"], outline="")
+        r = self._height // 2
+        self.create_rounded_rect(0, 0, self._width, self._height, r,
+                                 fill=THEME["bg_input"], outline="")
         if self._progress > 0:
             fill_w = int(self._width * self._progress)
-            gradient = self.create_rectangle(0, 0, fill_w, self._height,
-                                             fill=THEME["accent"], outline="")
+            self.create_rounded_rect(0, 0, fill_w, self._height, r,
+                                     fill=THEME["accent"], outline="")
+            if fill_w > 10:
+                self.create_rounded_rect(2, 2, fill_w - 2, self._height - 2, r - 1,
+                                         fill=THEME["accent_hover"], outline="")
+
+    def create_rounded_rect(self, x1, y1, x2, y2, r, **kw):
+        points = [
+            x1 + r, y1, x2 - r, y1,
+            x2 - r, y1, x2, y1, x2, y1 + r,
+            x2, y1 + r, x2, y2 - r,
+            x2, y2 - r, x2, y2, x2 - r, y2,
+            x2 - r, y2, x1 + r, y2,
+            x1 + r, y2, x1, y2, x1, y2 - r,
+            x1, y2 - r, x1, y1 + r,
+            x1, y1 + r, x1, y1, x1 + r, y1,
+        ]
+        return self.create_polygon(points, smooth=True, **kw)
 
     def set(self, value):
         self._progress = max(0.0, min(1.0, value))
@@ -295,29 +322,33 @@ def apply_dark_theme(style):
                     fieldbackground=THEME["bg_elevated"],
                     foreground=THEME["fg"],
                     borderwidth=0,
-                    rowheight=32)
+                    rowheight=34)
     style.configure("Treeview.Heading",
                     background=THEME["bg_input"],
                     foreground=THEME["fg_muted"],
                     relief="flat",
-                    font=("Microsoft YaHei", 10, "bold"))
+                    font=("Microsoft YaHei", 10, "bold"),
+                    padding=8)
     style.map("Treeview",
-              background=[("selected", THEME["accent"])],
-              foreground=[("selected", "#ffffff")])
+              background=[("selected", THEME["accent"]), ("active", THEME["bg_hover"])],
+              foreground=[("selected", "#ffffff"), ("active", THEME["fg"])])
     style.map("Treeview.Heading",
-              background=[("active", THEME["bg_hover"])])
+              background=[("active", THEME["bg_hover"])],
+              foreground=[("active", THEME["fg"])])
 
     style.configure("TCombobox",
                     fieldbackground=THEME["bg_input"],
                     background=THEME["bg_input"],
                     foreground=THEME["fg"],
                     arrowcolor=THEME["fg_muted"],
-                    relief="flat")
+                    relief="flat",
+                    padding=4)
     style.map("TCombobox",
               fieldbackground=[("readonly", THEME["bg_input"])],
               foreground=[("readonly", THEME["fg"])],
               selectbackground=[("readonly", THEME["bg_input"])],
-              selectforeground=[("readonly", THEME["fg"])])
+              selectforeground=[("readonly", THEME["fg"])],
+              arrowcolor=[("active", THEME["accent"])])
 
     style.configure("TFrame", background=THEME["bg"])
     style.configure("Card.TFrame", background=THEME["bg_elevated"])
@@ -330,24 +361,36 @@ def apply_dark_theme(style):
     style.configure("CardMuted.TLabel", background=THEME["bg_elevated"], foreground=THEME["fg_muted"],
                     font=("Microsoft YaHei", 9))
     style.configure("Title.TLabel", background=THEME["bg"], foreground=THEME["fg"],
-                    font=("Microsoft YaHei", 14, "bold"))
+                    font=("Microsoft YaHei", 16, "bold"))
     style.configure("CardTitle.TLabel", background=THEME["bg_elevated"], foreground=THEME["fg"],
-                    font=("Microsoft YaHei", 11, "bold"))
+                    font=("Microsoft YaHei", 12, "bold"))
     style.configure("Status.TLabel", background=THEME["bg_elevated"], foreground=THEME["fg_muted"],
                     font=("Microsoft YaHei", 9))
     style.configure("Hint.TLabel", background=THEME["bg_elevated"], foreground=THEME["fg_subtle"],
-                    font=("Microsoft YaHei", 9))
+                    font=("Microsoft YaHei", 8))
 
     style.configure("TSeparator", background=THEME["border"])
 
     style.configure("Vertical.TScrollbar",
-                    background=THEME["bg_elevated"],
-                    troughcolor=THEME["bg"],
+                    background=THEME["bg_input"],
+                    troughcolor=THEME["bg_elevated"],
+                    bordercolor=THEME["bg"],
+                    arrowcolor=THEME["fg_muted"],
+                    gripcount=0,
+                    width=8)
+    style.map("Vertical.TScrollbar",
+              background=[("active", THEME["bg_hover"]), ("pressed", THEME["bg_pressed"])],
+              arrowcolor=[("active", THEME["accent"])])
+
+    style.configure("Horizontal.TScrollbar",
+                    background=THEME["bg_input"],
+                    troughcolor=THEME["bg_elevated"],
                     bordercolor=THEME["bg"],
                     arrowcolor=THEME["fg_muted"],
                     gripcount=0)
-    style.map("Vertical.TScrollbar",
-              background=[("active", THEME["bg_hover"])])
+    style.map("Horizontal.TScrollbar",
+              background=[("active", THEME["bg_hover"])],
+              arrowcolor=[("active", THEME["accent"])])
 
 
 # ============================================================
@@ -356,14 +399,14 @@ def apply_dark_theme(style):
 
 class StatusIndicator(tk.Frame):
     def __init__(self, parent, **kw):
-        super().__init__(parent, bg=THEME["bg"], **kw)
-        self._canvas = tk.Canvas(self, width=12, height=12,
-                                 bg=THEME["bg"], highlightthickness=0, bd=0)
-        self._canvas.pack(side="left", padx=(0, 8))
-        self._dot = self._canvas.create_oval(2, 2, 10, 10, fill=THEME["fg_subtle"], outline="")
+        super().__init__(parent, bg=THEME["bg_elevated"], **kw)
+        self._canvas = tk.Canvas(self, width=14, height=14,
+                                 bg=THEME["bg_elevated"], highlightthickness=0, bd=0)
+        self._canvas.pack(side="left", padx=(0, 10))
+        self._dot = self._canvas.create_oval(3, 3, 11, 11, fill=THEME["fg_subtle"], outline="")
         self._pulse = None
-        self._label = tk.Label(self, text="未连接", bg=THEME["bg"],
-                               fg=THEME["fg_muted"], font=("Microsoft YaHei", 9))
+        self._label = tk.Label(self, text="未连接", bg=THEME["bg_elevated"],
+                               fg=THEME["fg_muted"], font=("Microsoft YaHei", 10))
         self._label.pack(side="left")
 
     def _start_pulse(self):
@@ -410,7 +453,9 @@ class MassSenderApp:
     def __init__(self, root):
         self.root = root
         self.root.title(APP_TITLE)
-        # 根据屏幕分辨率自适应窗口大小，确保所有控件可见
+        icon_path = os.path.join(os.path.dirname(__file__), "wechat_icon.ico")
+        if os.path.exists(icon_path):
+            self.root.iconbitmap(icon_path)
         screen_w = self.root.winfo_screenwidth()
         screen_h = self.root.winfo_screenheight()
         win_w = min(APP_W, screen_w - 80)
@@ -440,27 +485,32 @@ class MassSenderApp:
     # ---------------- UI 构建 ----------------
 
     def _build_ui(self):
-        # 顶部标题栏
-        header = ttk.Frame(self.root)
-        header.pack(fill="x", padx=20, pady=(16, 10))
+        header = ttk.Frame(self.root, style="Card.TFrame")
+        header.pack(fill="x", padx=12, pady=(12, 8))
 
-        # 左侧标题 + 图标
-        title_box = ttk.Frame(header, style="TFrame")
+        inner = ttk.Frame(header, style="Card.TFrame")
+        inner.pack(fill="x", padx=16, pady=14)
+
+        title_box = ttk.Frame(inner, style="Card.TFrame")
         title_box.pack(side="left")
 
-        icon_label = tk.Label(title_box, text="💬", bg=THEME["bg"],
-                              font=("Segoe UI Emoji", 20))
-        icon_label.pack(side="left", padx=(0, 10))
+        icon_label = tk.Label(title_box, text="💬", bg=THEME["bg_elevated"],
+                              font=("Segoe UI Emoji", 24))
+        icon_label.pack(side="left", padx=(0, 12))
 
-        title_lbl = ttk.Label(title_box, text="微信自动群发", style="Title.TLabel")
-        title_lbl.pack(side="left")
+        title_box2 = ttk.Frame(title_box, style="Card.TFrame")
+        title_box2.pack(side="left")
 
-        # 右侧状态指示器
-        self.indicator = StatusIndicator(header)
+        title_lbl = ttk.Label(title_box2, text=APP_TITLE, style="Title.TLabel")
+        title_lbl.pack(anchor="w")
+
+        sub_lbl = ttk.Label(title_box2, text="微信 PC 版自动群发工具", style="CardMuted.TLabel")
+        sub_lbl.pack(anchor="w", pady=(2, 0))
+
+        self.indicator = StatusIndicator(inner)
         self.indicator.pack(side="right", padx=(0, 12))
 
-        # 装饰线
-        ttk.Separator(self.root, orient="horizontal").pack(fill="x", padx=20)
+        ttk.Separator(self.root, orient="horizontal").pack(fill="x", padx=12)
 
         # 主区域
         main = ttk.Frame(self.root)
@@ -608,15 +658,23 @@ class MassSenderApp:
         ttk.Label(progress_box, textvariable=self.var_progress, style="CardMuted.TLabel").pack(side="left")
 
     def _build_status_bar(self):
-        self.status_bar = ttk.Frame(self.root, padding=(20, 6))
-        self.status_bar.pack(fill="x")
+        self.status_bar = ttk.Frame(self.root, style="Card.TFrame", padding=(16, 8))
+        self.status_bar.pack(fill="x", padx=12, pady=(0, 12))
+
+        left_box = ttk.Frame(self.status_bar, style="Card.TFrame")
+        left_box.pack(side="left")
 
         self.var_status_text = tk.StringVar(value="就绪")
-        ttk.Label(self.status_bar, textvariable=self.var_status_text, style="Muted.TLabel").pack(side="left")
+        ttk.Label(left_box, textvariable=self.var_status_text, style="CardMuted.TLabel").pack(side="left")
 
-        ttk.Separator(self.status_bar, orient="vertical").pack(side="left", fill="y", padx=12)
+        ttk.Separator(left_box, orient="vertical").pack(side="left", fill="y", padx=12)
 
-        ttk.Label(self.status_bar, text="微信自动群发 v1.0", style="Muted.TLabel").pack(side="right")
+        ttk.Label(left_box, text="微信 PC 版", style="CardMuted.TLabel").pack(side="left", padx=(0, 12))
+
+        right_box = ttk.Frame(self.status_bar, style="Card.TFrame")
+        right_box.pack(side="right")
+
+        ttk.Label(right_box, text="v1.0", style="CardMuted.TLabel").pack(side="right")
 
     # ---------------- 数据 ----------------
 
