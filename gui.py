@@ -54,8 +54,8 @@ THEME = {
     "accent":          "#58a6ff",
     "accent_hover":    "#79b8ff",
     "accent_active":   "#1f6feb",
-    "accent_glow":     "#58a6ff40",
-    "accent_shadow":   "#58a6ff20",
+    "accent_glow":     "#1f6feb",
+    "accent_shadow":   "#161b22",
     "success":         "#3fb950",
     "success_hover":   "#56d364",
     "warn":            "#d29922",
@@ -184,8 +184,22 @@ class DarkButton(tk.Canvas):
         r = 8
         x1, y1, x2, y2 = 0, 0, self._cw, self._ch
 
-        if glow:
-            self.create_oval(2, 2, self._cw - 2, self._ch - 2, fill=glow, outline="")
+        if glow and self._hover:
+            for i in range(3):
+                rx1, ry1, rx2, ry2 = x1 - i, y1 - i, x2 + i, y2 + i
+                rr = r + i
+                alpha = 60 - i * 20
+                points = [
+                    rx1 + rr, ry1, rx2 - rr, ry1,
+                    rx2 - rr, ry1, rx2, ry1, rx2, ry1 + rr,
+                    rx2, ry1 + rr, rx2, ry2 - rr,
+                    rx2, ry2 - rr, rx2, ry2, rx2 - rr, ry2,
+                    rx2 - rr, ry2, rx1 + rr, ry2,
+                    rx1 + rr, ry2, rx1, ry2, rx1, ry2 - rr,
+                    rx1, ry2 - rr, rx1, ry1 + rr,
+                    rx1, ry1 + rr, rx1, ry1, rx1 + rr, ry1,
+                ]
+                self.create_polygon(points, smooth=True, fill="", outline=glow, width=1)
 
         points = [
             x1 + r, y1, x2 - r, y1,
@@ -197,7 +211,7 @@ class DarkButton(tk.Canvas):
             x1, y2 - r, x1, y1 + r,
             x1, y1 + r, x1, y1, x1 + r, y1,
         ]
-        self.create_polygon(points, smooth=True, fill=bg, outline=border, width=1.5)
+        self.create_polygon(points, smooth=True, fill=bg, outline=border, width=2)
 
         offset_y = 1 if self._pressed else 0
         font_size = 10 if self._ch <= 32 else 11
