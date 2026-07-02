@@ -71,7 +71,7 @@ THEME = {
     "log_highlight":   "#58a6ff",
 }
 
-APP_TITLE = "微信群发助手"
+APP_TITLE = "Prism"
 APP_W = 1040
 APP_H = 820
 RECIPIENTS_FILE = "recipients.csv"
@@ -518,7 +518,7 @@ class MassSenderApp:
         title_lbl = ttk.Label(title_box2, text=APP_TITLE, style="Title.TLabel")
         title_lbl.pack(anchor="w")
 
-        sub_lbl = ttk.Label(title_box2, text="微信 PC 版自动群发工具", style="CardMuted.TLabel")
+        sub_lbl = ttk.Label(title_box2, text="微信自动群发工具", style="CardMuted.TLabel")
         sub_lbl.pack(anchor="w", pady=(2, 0))
 
         self.indicator = StatusIndicator(inner)
@@ -683,7 +683,7 @@ class MassSenderApp:
 
         ttk.Separator(left_box, orient="vertical").pack(side="left", fill="y", padx=12)
 
-        ttk.Label(left_box, text="微信 PC 版", style="CardMuted.TLabel").pack(side="left", padx=(0, 12))
+        ttk.Label(left_box, text="WeChat Auto Sender", style="CardMuted.TLabel").pack(side="left", padx=(0, 12))
 
         right_box = ttk.Frame(self.status_bar, style="Card.TFrame")
         right_box.pack(side="right")
@@ -695,7 +695,7 @@ class MassSenderApp:
     def _load_data(self):
         self.recipients = load_recipients(RECIPIENTS_FILE)
         self._refresh_tree()
-        self._log("欢迎使用微信自动群发工具", "highlight")
+        self._log("欢迎使用 Prism", "highlight")
         self._log(f"数据源: {RECIPIENTS_FILE}", "info")
 
     def _refresh_tree(self):
