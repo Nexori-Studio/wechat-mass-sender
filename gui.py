@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-微信自动群发工具 - GUI
-======================
-深色专业风格图形界面，基于 tkinter + pyautogui 实现。
+Prism — 微信自动群发工具
+========================
+白色天蓝主题，侧边栏布局，基于 tkinter + pyautogui 实现。
 
 运行：python gui.py
 """
 
 import os
+import sys
 import time
 import threading
 import random
@@ -28,7 +29,6 @@ from wechat_core import (
     check_files_exist,
     parse_schedule,
 )
-
 
 # ============================================================
 # 内置消息模板库
@@ -64,62 +64,65 @@ MESSAGE_TEMPLATES = {
 }
 
 # ============================================================
-# 主题：深色专业风（精美版）
+# 主题：白色 + 天蓝
 # ============================================================
 
 THEME = {
-    "bg":              "#0d1117",
-    "bg_elevated":     "#161b22",
-    "bg_input":        "#21262d",
-    "bg_hover":        "#30363d",
-    "bg_pressed":      "#21262d",
-    "bg_active":       "#1c2128",
+    "bg":              "#f5f7fa",
+    "bg_elevated":     "#ffffff",
+    "bg_input":        "#ffffff",
+    "bg_hover":        "#f0f4ff",
+    "bg_pressed":      "#e8f0fe",
+    "bg_active":       "#f0f7ff",
 
-    "fg":              "#f0f6fc",
-    "fg_muted":        "#8b949e",
-    "fg_subtle":       "#6e7681",
-    "fg_success":      "#3fb950",
-    "fg_warn":         "#d29922",
-    "fg_error":        "#f85149",
+    "fg":              "#1e293b",
+    "fg_muted":        "#64748b",
+    "fg_subtle":       "#94a3b8",
+    "fg_success":      "#10b981",
+    "fg_warn":         "#f59e0b",
+    "fg_error":        "#ef4444",
 
-    "border":          "#30363d",
-    "border_focus":    "#58a6ff",
-    "border_light":    "#3d4450",
+    "border":          "#e2e8f0",
+    "border_focus":    "#0ea5e9",
+    "border_light":    "#f1f5f9",
 
-    "accent":          "#58a6ff",
-    "accent_hover":    "#79b8ff",
-    "accent_active":   "#1f6feb",
-    "accent_glow":     "#1f6feb",
-    "accent_shadow":   "#161b22",
-    "success":         "#3fb950",
-    "success_hover":   "#56d364",
-    "warn":            "#d29922",
-    "warn_hover":      "#e3b341",
-    "error":           "#f85149",
-    "error_hover":     "#ff7b72",
+    "accent":          "#0ea5e9",
+    "accent_hover":    "#38bdf8",
+    "accent_active":   "#0284c7",
+    "accent_glow":     "#bae6fd",
+    "accent_shadow":   "#e0f2fe",
+    "success":         "#10b981",
+    "success_hover":   "#34d399",
+    "warn":            "#f59e0b",
+    "warn_hover":      "#fbbf24",
+    "error":           "#ef4444",
+    "error_hover":     "#f87171",
 
-    "log_bg":          "#010409",
-    "log_fg":          "#c9d1d9",
-    "log_success":     "#3fb950",
-    "log_error":       "#f85149",
-    "log_warn":        "#d29922",
-    "log_highlight":   "#58a6ff",
+    "sidebar_bg":      "#ffffff",
+    "sidebar_border":  "#e2e8f0",
+    "sidebar_active":  "#e0f2fe",
+
+    "log_bg":          "#ffffff",
+    "log_fg":          "#334155",
+    "log_success":     "#10b981",
+    "log_error":       "#ef4444",
+    "log_warn":        "#f59e0b",
+    "log_highlight":   "#0ea5e9",
 }
 
 APP_TITLE = "Prism"
-APP_W = 1040
-APP_H = 820
+APP_W = 1600
+APP_H = 900
 RECIPIENTS_FILE = "recipients.csv"
+SIDEBAR_W = 220
 
 
 # ============================================================
-# 自定义控件：Toast 通知
+# Toast 通知
 # ============================================================
 
 class Toast(tk.Toplevel):
-    """轻量级通知弹窗，自动消失，不打断用户操作"""
-
-    def __init__(self, parent, message, type="info", duration=3000):
+    def __init__(self, parent, message, msg_type="info", duration=3000):
         super().__init__(parent)
         self.withdraw()
         self.overrideredirect(True)
@@ -132,7 +135,7 @@ class Toast(tk.Toplevel):
             "warn":   (THEME["warn"], "⚠️"),
             "error":  (THEME["error"], "✗"),
         }
-        color, icon = types.get(type, types["info"])
+        color, icon = types.get(msg_type, types["info"])
 
         frame = tk.Frame(self, bg=THEME["bg_elevated"], padx=20, pady=14)
         frame.pack(fill="both")
@@ -140,14 +143,10 @@ class Toast(tk.Toplevel):
         line = tk.Frame(frame, width=4, bg=color)
         line.pack(side="left", fill="y")
 
-        icon_lbl = tk.Label(frame, text=icon, bg=THEME["bg_elevated"],
-                            fg=color, font=("Segoe UI Emoji", 16), padx=12)
-        icon_lbl.pack(side="left")
-
-        text_lbl = tk.Label(frame, text=message, bg=THEME["bg_elevated"],
-                            fg=THEME["fg"], font=("Microsoft YaHei", 11),
-                            wraplength=320, justify="left")
-        text_lbl.pack(side="left", fill="both")
+        tk.Label(frame, text=icon, bg=THEME["bg_elevated"], fg=color,
+                 font=("Segoe UI Emoji", 16), padx=12).pack(side="left")
+        tk.Label(frame, text=message, bg=THEME["bg_elevated"], fg=THEME["fg"],
+                 font=("Microsoft YaHei", 11), wraplength=320, justify="left").pack(side="left", fill="both")
 
         self.update_idletasks()
         pw, ph = self.winfo_width(), self.winfo_height()
@@ -161,15 +160,14 @@ class Toast(tk.Toplevel):
 
 
 # ============================================================
-# 自定义控件：DarkButton 升级
+# 圆角按钮
 # ============================================================
 
 class DarkButton(tk.Canvas):
-    """自绘按钮：支持悬停/按下/禁用/发光效果，圆角设计"""
-
     def __init__(self, parent, text, command=None, style="default", width=90, height=32, **kw):
+        self._bg = kw.pop("bg", THEME["bg_elevated"])
         super().__init__(parent, width=width, height=height,
-                         bg=THEME["bg"], highlightthickness=0, bd=0, **kw)
+                         bg=self._bg, highlightthickness=0, bd=0, **kw)
         self._text = text
         self._command = command
         self._enabled = True
@@ -188,26 +186,26 @@ class DarkButton(tk.Canvas):
             return THEME["bg_elevated"], THEME["fg_subtle"], THEME["border"], None
         if self._pressed:
             if self._style == "accent":
-                return THEME["accent_active"], "#ffffff", THEME["accent_active"], THEME["accent_shadow"]
+                return THEME["accent_active"], "#ffffff", THEME["accent_active"], None
             if self._style == "danger":
                 return THEME["error_hover"], "#ffffff", THEME["error_hover"], None
             if self._style == "success":
-                return THEME["success"], "#0d1117", THEME["success"], None
-            return THEME["bg_pressed"], THEME["fg"], THEME["border_light"], None
+                return THEME["success"], "#ffffff", THEME["success"], None
+            return THEME["bg_pressed"], THEME["fg"], THEME["border"], None
         if self._hover:
             if self._style == "accent":
-                return THEME["accent_hover"], "#ffffff", THEME["accent_hover"], THEME["accent_glow"]
+                return THEME["accent_hover"], "#ffffff", THEME["accent_hover"], None
             if self._style == "danger":
                 return THEME["error_hover"], "#ffffff", THEME["error_hover"], None
             if self._style == "success":
-                return THEME["success_hover"], "#0d1117", THEME["success_hover"], None
-            return THEME["bg_hover"], THEME["fg"], THEME["border_light"], None
+                return THEME["success_hover"], "#ffffff", THEME["success_hover"], None
+            return THEME["bg_hover"], THEME["fg"], THEME["border"], None
         if self._style == "accent":
-            return THEME["accent"], "#ffffff", THEME["accent"], THEME["accent_shadow"]
+            return THEME["accent"], "#ffffff", THEME["accent"], None
         if self._style == "danger":
             return THEME["error"], "#ffffff", THEME["error"], None
         if self._style == "success":
-            return THEME["success"], "#0d1117", THEME["success"], None
+            return THEME["success"], "#ffffff", THEME["success"], None
         return THEME["bg_elevated"], THEME["fg"], THEME["border"], None
 
     def _render(self):
@@ -215,26 +213,9 @@ class DarkButton(tk.Canvas):
             self.delete("all")
         except tk.TclError:
             return
-        bg, fg, border, glow = self._colors()
+        bg, fg, border, _ = self._colors()
         r = 8
         x1, y1, x2, y2 = 0, 0, self._cw, self._ch
-
-        if glow and self._hover:
-            for i in range(3):
-                rx1, ry1, rx2, ry2 = x1 - i, y1 - i, x2 + i, y2 + i
-                rr = r + i
-                alpha = 60 - i * 20
-                points = [
-                    rx1 + rr, ry1, rx2 - rr, ry1,
-                    rx2 - rr, ry1, rx2, ry1, rx2, ry1 + rr,
-                    rx2, ry1 + rr, rx2, ry2 - rr,
-                    rx2, ry2 - rr, rx2, ry2, rx2 - rr, ry2,
-                    rx2 - rr, ry2, rx1 + rr, ry2,
-                    rx1 + rr, ry2, rx1, ry2, rx1, ry2 - rr,
-                    rx1, ry2 - rr, rx1, ry1 + rr,
-                    rx1, ry1 + rr, rx1, ry1, rx1 + rr, ry1,
-                ]
-                self.create_polygon(points, smooth=True, fill="", outline=glow, width=1)
 
         points = [
             x1 + r, y1, x2 - r, y1,
@@ -254,8 +235,7 @@ class DarkButton(tk.Canvas):
                          fill=fg, font=("Microsoft YaHei", font_size, "bold"))
 
     def _on_enter(self, _):
-        if not self._enabled:
-            return
+        if not self._enabled: return
         self._hover = True
         self._render()
 
@@ -263,20 +243,18 @@ class DarkButton(tk.Canvas):
         self._hover = False
         self._pressed = False
         try:
-            self.configure(bg=THEME["bg"])
+            self.configure(bg=self._bg)
             self._render()
         except tk.TclError:
             pass
 
     def _on_press(self, _):
-        if not self._enabled:
-            return
+        if not self._enabled: return
         self._pressed = True
         self._render()
 
     def _on_release(self, _):
-        if not self._enabled:
-            return
+        if not self._enabled: return
         self._pressed = False
         self._render()
         if self._command:
@@ -285,14 +263,14 @@ class DarkButton(tk.Canvas):
     def configure_state(self, enabled):
         self._enabled = enabled
         try:
-            self.configure(bg=THEME["bg"], cursor="hand2" if enabled else "arrow")
+            self.configure(bg=self._bg, cursor="hand2" if enabled else "arrow")
             self._render()
         except tk.TclError:
             pass
 
 
 # ============================================================
-# 自定义控件：其他
+# 输入框 / 文本域 / 进度条
 # ============================================================
 
 class DarkEntry(tk.Entry):
@@ -300,9 +278,7 @@ class DarkEntry(tk.Entry):
         super().__init__(parent, textvariable=textvariable, width=width,
                          bg=THEME["bg_input"], fg=THEME["fg"],
                          insertbackground=THEME["accent"],
-                         relief="flat", bd=0, highlightthickness=2,
-                         highlightcolor=THEME["border_focus"],
-                         highlightbackground=THEME["border"],
+                         relief="solid", bd=1,
                          font=("Consolas", 10), **kw)
 
 
@@ -311,15 +287,12 @@ class DarkText(scrolledtext.ScrolledText):
         super().__init__(parent,
                          bg=THEME["log_bg"], fg=THEME["log_fg"],
                          insertbackground=THEME["accent"],
-                         relief="flat", bd=0, highlightthickness=1,
-                         highlightcolor=THEME["border"],
-                         highlightbackground=THEME["border"],
+                         relief="solid", bd=1,
                          font=("Consolas", 10), wrap="word",
                          **kw)
 
 
 class ProgressBar(tk.Canvas):
-    """自绘进度条：带圆角和发光效果"""
     def __init__(self, parent, width=200, height=8, **kw):
         super().__init__(parent, width=width, height=height,
                          bg=THEME["bg_elevated"], highlightthickness=0, bd=0, **kw)
@@ -332,7 +305,7 @@ class ProgressBar(tk.Canvas):
         self.delete("all")
         r = self._height // 2
         self.create_rounded_rect(0, 0, self._width, self._height, r,
-                                 fill=THEME["bg_input"], outline="")
+                                 fill="#e2e8f0", outline="")
         if self._progress > 0:
             fill_w = int(self._width * self._progress)
             self.create_rounded_rect(0, 0, fill_w, self._height, r,
@@ -360,24 +333,24 @@ class ProgressBar(tk.Canvas):
 
 
 # ============================================================
-# 主题应用
+# 主题
 # ============================================================
 
-def apply_dark_theme(style):
+def apply_light_theme(style):
     style.theme_use("clam")
 
     style.configure("Treeview",
-                    background=THEME["bg_elevated"],
-                    fieldbackground=THEME["bg_elevated"],
+                    background=THEME["bg_input"],
+                    fieldbackground=THEME["bg_input"],
                     foreground=THEME["fg"],
                     borderwidth=0,
-                    rowheight=34)
+                    rowheight=36)
     style.configure("Treeview.Heading",
-                    background=THEME["bg_input"],
+                    background=THEME["bg"],
                     foreground=THEME["fg_muted"],
                     relief="flat",
                     font=("Microsoft YaHei", 10, "bold"),
-                    padding=8)
+                    padding=10)
     style.map("Treeview",
               background=[("selected", THEME["accent"]), ("active", THEME["bg_hover"])],
               foreground=[("selected", "#ffffff"), ("active", THEME["fg"])])
@@ -390,17 +363,16 @@ def apply_dark_theme(style):
                     background=THEME["bg_input"],
                     foreground=THEME["fg"],
                     arrowcolor=THEME["fg_muted"],
-                    relief="flat",
-                    padding=4)
+                    relief="solid",
+                    padding=6)
     style.map("TCombobox",
               fieldbackground=[("readonly", THEME["bg_input"])],
               foreground=[("readonly", THEME["fg"])],
-              selectbackground=[("readonly", THEME["bg_input"])],
-              selectforeground=[("readonly", THEME["fg"])],
               arrowcolor=[("active", THEME["accent"])])
 
     style.configure("TFrame", background=THEME["bg"])
     style.configure("Card.TFrame", background=THEME["bg_elevated"])
+    style.configure("Sidebar.TFrame", background=THEME["sidebar_bg"])
     style.configure("TLabel", background=THEME["bg"], foreground=THEME["fg"],
                     font=("Microsoft YaHei", 10))
     style.configure("Muted.TLabel", background=THEME["bg"], foreground=THEME["fg_muted"],
@@ -409,32 +381,33 @@ def apply_dark_theme(style):
                     font=("Microsoft YaHei", 10))
     style.configure("CardMuted.TLabel", background=THEME["bg_elevated"], foreground=THEME["fg_muted"],
                     font=("Microsoft YaHei", 9))
+    style.configure("Sidebar.TLabel", background=THEME["sidebar_bg"], foreground=THEME["fg"],
+                    font=("Microsoft YaHei", 10))
+    style.configure("SidebarMuted.TLabel", background=THEME["sidebar_bg"], foreground=THEME["fg_muted"],
+                    font=("Microsoft YaHei", 9))
     style.configure("Title.TLabel", background=THEME["bg"], foreground=THEME["fg"],
                     font=("Microsoft YaHei", 16, "bold"))
     style.configure("CardTitle.TLabel", background=THEME["bg_elevated"], foreground=THEME["fg"],
                     font=("Microsoft YaHei", 12, "bold"))
-    style.configure("Status.TLabel", background=THEME["bg_elevated"], foreground=THEME["fg_muted"],
-                    font=("Microsoft YaHei", 9))
     style.configure("Hint.TLabel", background=THEME["bg_elevated"], foreground=THEME["fg_subtle"],
                     font=("Microsoft YaHei", 8))
 
     style.configure("TSeparator", background=THEME["border"])
 
     style.configure("Vertical.TScrollbar",
-                    background=THEME["bg_input"],
-                    troughcolor=THEME["bg_elevated"],
-                    bordercolor=THEME["bg"],
+                    background=THEME["bg_elevated"],
+                    troughcolor=THEME["bg"],
+                    bordercolor=THEME["border"],
                     arrowcolor=THEME["fg_muted"],
-                    gripcount=0,
-                    width=8)
+                    gripcount=0, width=8)
     style.map("Vertical.TScrollbar",
               background=[("active", THEME["bg_hover"]), ("pressed", THEME["bg_pressed"])],
               arrowcolor=[("active", THEME["accent"])])
 
     style.configure("Horizontal.TScrollbar",
-                    background=THEME["bg_input"],
-                    troughcolor=THEME["bg_elevated"],
-                    bordercolor=THEME["bg"],
+                    background=THEME["bg_elevated"],
+                    troughcolor=THEME["bg"],
+                    bordercolor=THEME["border"],
                     arrowcolor=THEME["fg_muted"],
                     gripcount=0)
     style.map("Horizontal.TScrollbar",
@@ -448,13 +421,14 @@ def apply_dark_theme(style):
 
 class StatusIndicator(tk.Frame):
     def __init__(self, parent, **kw):
-        super().__init__(parent, bg=THEME["bg_elevated"], **kw)
-        self._canvas = tk.Canvas(self, width=14, height=14,
-                                 bg=THEME["bg_elevated"], highlightthickness=0, bd=0)
+        bg = kw.pop("bg", THEME["sidebar_bg"])
+        super().__init__(parent, bg=bg, **kw)
+        self._canvas = tk.Canvas(self, width=14, height=14, bg=bg,
+                                 highlightthickness=0, bd=0)
         self._canvas.pack(side="left", padx=(0, 10))
         self._dot = self._canvas.create_oval(3, 3, 11, 11, fill=THEME["fg_subtle"], outline="")
         self._pulse = None
-        self._label = tk.Label(self, text="未连接", bg=THEME["bg_elevated"],
+        self._label = tk.Label(self, text="未连接", bg=bg,
                                fg=THEME["fg_muted"], font=("Microsoft YaHei", 10))
         self._label.pack(side="left")
 
@@ -462,9 +436,11 @@ class StatusIndicator(tk.Frame):
         self._stop_pulse()
         def pulse():
             try:
-                alpha = (time.time() * 3) % 1
-                color = f"#{int(0x3d + alpha*0x15):02x}{int(0x8b + alpha*0x09):02x}{int(0xf2 + alpha*0x03):02x}"
-                self._canvas.itemconfig(self._dot, fill=color)
+                a = (time.time() * 3) % 1
+                r = int(0xcb + a * (0x0e - 0xcb))
+                g = int(0xd5 + a * (0xa5 - 0xd5))
+                b = int(0xe1 + a * (0xe9 - 0xe1))
+                self._canvas.itemconfig(self._dot, fill=f"#{r:02x}{g:02x}{b:02x}")
                 self._pulse = self._canvas.after(50, pulse)
             except (tk.TclError, AttributeError):
                 pass
@@ -505,6 +481,7 @@ class MassSenderApp:
         icon_path = os.path.join(os.path.dirname(__file__), "wechat_icon.ico")
         if os.path.exists(icon_path):
             self.root.iconbitmap(icon_path)
+
         screen_w = self.root.winfo_screenwidth()
         screen_h = self.root.winfo_screenheight()
         win_w = min(APP_W, screen_w - 80)
@@ -512,7 +489,8 @@ class MassSenderApp:
         x = (screen_w - win_w) // 2
         y = max(0, (screen_h - win_h) // 2 - 20)
         self.root.geometry(f"{win_w}x{win_h}+{x}+{y}")
-        self.root.minsize(920, 700)
+        self.root.minsize(1200, 750)
+        self.root.resizable(False, False)
         self.root.configure(bg=THEME["bg"])
 
         self.recipients = []
@@ -529,215 +507,281 @@ class MassSenderApp:
 
     def _build_style(self):
         self.style = ttk.Style()
-        apply_dark_theme(self.style)
+        apply_light_theme(self.style)
 
-    # ---------------- UI 构建 ----------------
+    # ======================== UI 构建 ========================
 
     def _build_ui(self):
-        header = ttk.Frame(self.root, style="Card.TFrame")
-        header.pack(fill="x", padx=12, pady=(12, 8))
+        wrapper = tk.Frame(self.root, bg=THEME["bg"])
+        wrapper.pack(fill="both", expand=True)
 
-        inner = ttk.Frame(header, style="Card.TFrame")
-        inner.pack(fill="x", padx=16, pady=14)
+        # ---- 左侧边栏 ----
+        sidebar = tk.Frame(wrapper, bg=THEME["sidebar_bg"], width=SIDEBAR_W)
+        sidebar.pack(side="left", fill="y")
+        sidebar.pack_propagate(False)
+        self._build_sidebar(sidebar)
 
-        title_box = ttk.Frame(inner, style="Card.TFrame")
-        title_box.pack(side="left")
+        # 分隔线
+        tk.Frame(wrapper, bg=THEME["sidebar_border"], width=1).pack(side="left", fill="y")
 
-        icon_label = tk.Label(title_box, text="💬", bg=THEME["bg_elevated"],
-                              font=("Segoe UI Emoji", 24))
-        icon_label.pack(side="left", padx=(0, 12))
+        # ---- 右侧主内容 ----
+        content = tk.Frame(wrapper, bg=THEME["bg"])
+        content.pack(side="left", fill="both", expand=True)
 
-        title_box2 = ttk.Frame(title_box, style="Card.TFrame")
-        title_box2.pack(side="left")
+        # 顶部栏
+        self._build_topbar(content)
 
-        title_lbl = ttk.Label(title_box2, text=APP_TITLE, style="Title.TLabel")
-        title_lbl.pack(anchor="w")
+        # 中间：收件人 + 配置
+        mid = tk.Frame(content, bg=THEME["bg"])
+        mid.pack(fill="both", expand=True, padx=20, pady=(12, 8))
 
-        sub_lbl = ttk.Label(title_box2, text="微信自动群发工具", style="CardMuted.TLabel")
-        sub_lbl.pack(anchor="w", pady=(2, 0))
+        left_panel = tk.Frame(mid, bg=THEME["bg"])
+        left_panel.pack(side="left", fill="both", expand=True)
+        self._build_recipients_card(left_panel)
 
-        self.indicator = StatusIndicator(inner)
-        self.indicator.pack(side="right", padx=(0, 12))
+        right_panel = tk.Frame(mid, bg=THEME["bg"], width=340)
+        right_panel.pack(side="right", fill="y", padx=(16, 0))
+        right_panel.pack_propagate(False)
+        self._build_config_card(right_panel)
 
-        ttk.Separator(self.root, orient="horizontal").pack(fill="x", padx=12)
+        # 底部：日志 + 进度
+        bottom = tk.Frame(content, bg=THEME["bg"])
+        bottom.pack(fill="both", expand=True, padx=20, pady=(8, 20))
+        self._build_bottom_card(bottom)
 
-        # 主区域
-        main = ttk.Frame(self.root)
-        main.pack(fill="both", expand=True, padx=20, pady=12)
+    # ---- 侧边栏 ----
 
-        # 左侧：收件人卡片
-        left = ttk.Frame(main)
-        left.pack(side="left", fill="both", expand=True, padx=(0, 8))
-        self._build_recipients_card(left)
+    def _build_sidebar(self, parent):
+        # Logo
+        logo = tk.Frame(parent, bg=THEME["sidebar_bg"], padx=20, pady=24)
+        logo.pack(fill="x")
 
-        # 右侧：配置 + 日志
-        right = ttk.Frame(main)
-        right.pack(side="right", fill="both", expand=True, padx=(8, 0))
-        self._build_config_card(right)
-        self._build_log_card(right)
+        tk.Label(logo, text="💬", bg=THEME["sidebar_bg"],
+                 font=("Segoe UI Emoji", 28)).pack(anchor="w")
+        tk.Label(logo, text=APP_TITLE, bg=THEME["sidebar_bg"],
+                 fg=THEME["fg"], font=("Microsoft YaHei", 20, "bold")).pack(anchor="w", pady=(8, 0))
+        tk.Label(logo, text="微信自动群发", bg=THEME["sidebar_bg"],
+                 fg=THEME["fg_muted"], font=("Microsoft YaHei", 10)).pack(anchor="w", pady=(2, 0))
 
-        # 底部状态栏
-        self._build_status_bar()
+        tk.Frame(parent, bg=THEME["sidebar_border"], height=1).pack(fill="x", padx=20, pady=(0, 16))
+
+        # 状态
+        self.indicator = StatusIndicator(parent, bg=THEME["sidebar_bg"])
+        self.indicator.pack(padx=20, anchor="w", pady=(0, 16))
+
+        tk.Frame(parent, bg=THEME["sidebar_border"], height=1).pack(fill="x", padx=20, pady=(0, 16))
+
+        # 收件人操作
+        btn_z = tk.Frame(parent, bg=THEME["sidebar_bg"], padx=16)
+        btn_z.pack(fill="x")
+
+        tk.Label(btn_z, text="收件人", bg=THEME["sidebar_bg"], fg=THEME["fg_subtle"],
+                 font=("Microsoft YaHei", 9, "bold")).pack(anchor="w", pady=(0, 6))
+
+        self._sidebar_btn(btn_z, "➕ 添加收件人", self.add_recipient, "accent").pack(fill="x", pady=3)
+        self._sidebar_btn(btn_z, "📋 批量添加", self.batch_add).pack(fill="x", pady=3)
+        self._sidebar_btn(btn_z, "✏️ 编辑选中", self.edit_recipient).pack(fill="x", pady=3)
+        self._sidebar_btn(btn_z, "🗑 删除选中", self.delete_recipient, "danger").pack(fill="x", pady=3)
+
+        tk.Frame(parent, bg=THEME["sidebar_border"], height=1).pack(fill="x", padx=20, pady=12)
+
+        # 工具箱
+        btn_z2 = tk.Frame(parent, bg=THEME["sidebar_bg"], padx=16)
+        btn_z2.pack(fill="x")
+
+        tk.Label(btn_z2, text="工具箱", bg=THEME["sidebar_bg"], fg=THEME["fg_subtle"],
+                 font=("Microsoft YaHei", 9, "bold")).pack(anchor="w", pady=(0, 6))
+
+        self._sidebar_btn(btn_z2, "📚 消息模板", self._open_template_picker).pack(fill="x", pady=3)
+        self._sidebar_btn(btn_z2, "🧪 测试发送", self.test_one).pack(fill="x", pady=3)
+
+        tk.Frame(parent, bg=THEME["sidebar_border"], height=1).pack(fill="x", padx=20, pady=12)
+
+        # 发送
+        btn_z3 = tk.Frame(parent, bg=THEME["sidebar_bg"], padx=16)
+        btn_z3.pack(fill="x")
+
+        tk.Label(btn_z3, text="群发", bg=THEME["sidebar_bg"], fg=THEME["fg_subtle"],
+                 font=("Microsoft YaHei", 9, "bold")).pack(anchor="w", pady=(0, 6))
+
+        self.btn_send = DarkButton(btn_z3, "▶ 开始群发", command=self.start_send,
+                                   style="accent", width=160, height=38, bg=THEME["sidebar_bg"])
+        self.btn_send.pack(fill="x", pady=3)
+        self.btn_stop = DarkButton(btn_z3, "⏹ 停止", command=self.stop_send,
+                                   style="danger", width=160, height=32, bg=THEME["sidebar_bg"])
+        self.btn_stop.pack(fill="x", pady=3)
+        self.btn_stop.configure_state(False)
+
+        # 底部占位 + 版本号
+        tk.Frame(parent, bg=THEME["sidebar_bg"]).pack(fill="both", expand=True)
+        tk.Label(parent, text="v1.0  ·  Nexori Studio", bg=THEME["sidebar_bg"],
+                 fg=THEME["fg_subtle"], font=("Microsoft YaHei", 8)).pack(pady=(0, 16))
+
+    def _sidebar_btn(self, parent, text, command, style="default"):
+        return DarkButton(parent, text, command=command, style=style,
+                          width=160, height=32, bg=THEME["sidebar_bg"])
+
+    # ---- 顶部栏 ----
+
+    def _build_topbar(self, parent):
+        bar = tk.Frame(parent, bg=THEME["bg_elevated"], height=56)
+        bar.pack(fill="x", padx=20, pady=(14, 0))
+        bar.pack_propagate(False)
+
+        inner = tk.Frame(bar, bg=THEME["bg_elevated"], padx=20)
+        inner.pack(fill="both", expand=True)
+
+        tk.Label(inner, text="收件人管理", bg=THEME["bg_elevated"],
+                 fg=THEME["fg"], font=("Microsoft YaHei", 13, "bold")).pack(side="left")
+
+        self.var_count = tk.StringVar(value="共 0 条记录")
+        count_lbl = tk.Label(inner, textvariable=self.var_count, bg=THEME["bg_elevated"],
+                             fg=THEME["fg_muted"], font=("Microsoft YaHei", 10))
+        count_lbl.pack(side="right", padx=(0, 8))
+
+        self.var_status_top = tk.StringVar(value="")
+        st_lbl = tk.Label(inner, textvariable=self.var_status_top, bg=THEME["bg_elevated"],
+                          fg=THEME["accent"], font=("Microsoft YaHei", 9, "bold"))
+        st_lbl.pack(side="right")
+
+    # ---- 收件人卡片 ----
 
     def _build_recipients_card(self, parent):
-        card = ttk.Frame(parent, style="Card.TFrame", padding=14)
+        card = tk.Frame(parent, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
+                        highlightthickness=1)
         card.pack(fill="both", expand=True)
 
-        title_bar = ttk.Frame(card, style="Card.TFrame")
-        title_bar.pack(fill="x", pady=(0, 12))
-
-        ttk.Label(title_bar, text="收件人", style="CardTitle.TLabel").pack(side="left")
-
-        btn_box = ttk.Frame(title_bar, style="Card.TFrame")
-        btn_box.pack(side="right")
-
-        self.btn_test = DarkButton(btn_box, "🧪 测试", command=self.test_one, width=80, height=28)
-        self.btn_test.pack(side="left", padx=2)
-        self.btn_tpl = DarkButton(btn_box, "📚 模板", command=self._open_template_picker, width=80, height=28)
-        self.btn_tpl.pack(side="left", padx=2)
-        self.btn_add = DarkButton(btn_box, "➕ 添加", command=self.add_recipient, width=80, height=28)
-        self.btn_add.pack(side="left", padx=2)
-        self.btn_batch = DarkButton(btn_box, "📋 批量", command=self.batch_add, width=80, height=28)
-        self.btn_batch.pack(side="left", padx=2)
-        self.btn_edit = DarkButton(btn_box, "✏️ 编辑", command=self.edit_recipient, width=80, height=28)
-        self.btn_edit.pack(side="left", padx=2)
-        self.btn_del = DarkButton(btn_box, "🗑 删除", command=self.delete_recipient, width=80, height=28)
-        self.btn_del.pack(side="left", padx=2)
-
-        table_frame = ttk.Frame(card, style="Card.TFrame")
-        table_frame.pack(fill="both", expand=True)
+        pad = tk.Frame(card, bg=THEME["bg_elevated"], padx=16, pady=16)
+        pad.pack(fill="both", expand=True)
 
         columns = ("name", "type", "message", "file", "schedule")
-        self.tree = ttk.Treeview(table_frame, columns=columns, show="headings", height=10)
-        self.tree.heading("name", text="名称", anchor="w")
+        self.tree = ttk.Treeview(pad, columns=columns, show="headings", height=10)
+        self.tree.heading("name", text="收件人名称", anchor="w")
         self.tree.heading("type", text="类型", anchor="center")
-        self.tree.heading("message", text="消息模板", anchor="w")
+        self.tree.heading("message", text="消息内容", anchor="w")
         self.tree.heading("file", text="附件", anchor="center")
         self.tree.heading("schedule", text="定时", anchor="center")
-        self.tree.column("name", width=130, anchor="w", stretch=False)
-        self.tree.column("type", width=65, anchor="center", stretch=False)
-        self.tree.column("message", width=220, anchor="w")
+        self.tree.column("name", width=170, anchor="w", stretch=False)
+        self.tree.column("type", width=70, anchor="center", stretch=False)
+        self.tree.column("message", width=260, anchor="w")
         self.tree.column("file", width=70, anchor="center", stretch=False)
-        self.tree.column("schedule", width=90, anchor="center", stretch=False)
+        self.tree.column("schedule", width=100, anchor="center", stretch=False)
 
-        vsb = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview,
+        vsb = ttk.Scrollbar(pad, orient="vertical", command=self.tree.yview,
                             style="Vertical.TScrollbar")
         self.tree.configure(yscrollcommand=vsb.set)
         self.tree.pack(side="left", fill="both", expand=True)
         vsb.pack(side="right", fill="y")
 
         self.tree.tag_configure("oddrow", background=THEME["bg_elevated"])
-        self.tree.tag_configure("evenrow", background="#262b34")
+        self.tree.tag_configure("evenrow", background=THEME["bg"])
 
-        self.tree.bind("<Double-1>", lambda e: self.edit_recipient())
-
-        bottom = ttk.Frame(card, style="Card.TFrame")
-        bottom.pack(fill="x", pady=(10, 0))
-
-        self.var_status = tk.StringVar(value="共 0 位收件人")
-        ttk.Label(bottom, textvariable=self.var_status, style="CardMuted.TLabel").pack(side="left")
-
-        DarkButton(bottom, "📂 导入", command=self.import_csv, width=72, height=28).pack(side="right", padx=2)
-        DarkButton(bottom, "💾 保存", command=self.save_data, width=72, height=28).pack(side="right", padx=2)
+    # ---- 配置卡片 ----
 
     def _build_config_card(self, parent):
-        card = ttk.Frame(parent, style="Card.TFrame", padding=14)
-        card.pack(fill="x", pady=(0, 12))
-
-        ttk.Label(card, text="发送配置", style="CardTitle.TLabel").pack(anchor="w", pady=(0, 12))
-
-        row1 = ttk.Frame(card, style="Card.TFrame")
-        row1.pack(fill="x", pady=4)
-        self._labeled_entry(row1, "最小延时(秒)", "var_min_delay", str(self.config["min_delay"])).pack(side="left", padx=(0, 16))
-        self._labeled_entry(row1, "最大延时(秒)", "var_max_delay", str(self.config["max_delay"])).pack(side="left", padx=(0, 16))
-        self._labeled_entry(row1, "重试次数", "var_max_retries", str(self.config["max_retries"]), width=4).pack(side="left", padx=(0, 16))
-
-        row2 = ttk.Frame(card, style="Card.TFrame")
-        row2.pack(fill="x", pady=4)
-        self._labeled_entry(row2, "点击 X 比例", "var_click_x", str(self.config["click_x_ratio"])).pack(side="left", padx=(0, 16))
-        self._labeled_entry(row2, "点击 Y 比例", "var_click_y", str(self.config["click_y_ratio"])).pack(side="left", padx=(0, 16))
-        self._labeled_entry(row2, "搜索等待(秒)", "var_search_wait", str(self.config["search_wait"])).pack(side="left", padx=(0, 16))
-
-        action_bar = ttk.Frame(card, style="Card.TFrame")
-        action_bar.pack(fill="x", pady=(14, 0))
-
-        ttk.Label(action_bar, text="💡 紧急停止：将鼠标快速移到屏幕左上角",
-                  style="Hint.TLabel").pack(side="left")
-
-        self.btn_stop = DarkButton(action_bar, "⏹ 停止", command=self.stop_send,
-                                   style="danger", width=90, height=32)
-        self.btn_stop.pack(side="right", padx=(8, 0))
-        self.btn_stop.configure_state(False)
-
-        self.btn_send = DarkButton(action_bar, "🚀 开始群发", command=self.start_send,
-                                   style="accent", width=120, height=32)
-        self.btn_send.pack(side="right")
-
-    def _labeled_entry(self, parent, label, var_name, default, width=8):
-        box = ttk.Frame(parent, style="Card.TFrame")
-        ttk.Label(box, text=label, style="CardMuted.TLabel").pack(side="left", padx=(0, 6))
-        var = tk.StringVar(value=default)
-        setattr(self, var_name, var)
-        DarkEntry(box, textvariable=var, width=width).pack(side="left")
-        return box
-
-    def _build_log_card(self, parent):
-        card = ttk.Frame(parent, style="Card.TFrame", padding=14)
+        card = tk.Frame(parent, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
+                        highlightthickness=1)
         card.pack(fill="both", expand=True)
 
-        title_bar = ttk.Frame(card, style="Card.TFrame")
-        title_bar.pack(fill="x", pady=(0, 8))
+        pad = tk.Frame(card, bg=THEME["bg_elevated"], padx=16, pady=16)
+        pad.pack(fill="both", expand=True)
 
-        ttk.Label(title_bar, text="运行日志", style="CardTitle.TLabel").pack(side="left")
+        tk.Label(pad, text="发送配置", bg=THEME["bg_elevated"],
+                 fg=THEME["fg"], font=("Microsoft YaHei", 12, "bold")).pack(anchor="w", pady=(0, 14))
 
-        self.var_count = tk.StringVar(value="")
-        ttk.Label(title_bar, textvariable=self.var_count, style="CardMuted.TLabel").pack(side="right")
+        # 间隔设置
+        tk.Label(pad, text="发送间隔（秒）", bg=THEME["bg_elevated"],
+                 fg=THEME["fg_muted"], font=("Microsoft YaHei", 10)).pack(anchor="w", pady=(0, 4))
 
-        self.log_text = DarkText(card, height=10)
-        self.log_text.pack(fill="both", expand=True, pady=(0, 8))
+        delay_box = tk.Frame(pad, bg=THEME["bg_elevated"])
+        delay_box.pack(fill="x", pady=(0, 6))
 
-        self.log_text.tag_configure("info", foreground=THEME["log_fg"])
-        self.log_text.tag_configure("success", foreground=THEME["log_success"])
-        self.log_text.tag_configure("error", foreground=THEME["log_error"])
-        self.log_text.tag_configure("warn", foreground=THEME["log_warn"])
-        self.log_text.tag_configure("highlight", foreground=THEME["log_highlight"])
+        self.var_min_delay = tk.StringVar(value=str(self.config["min_delay"]))
+        self.var_max_delay = tk.StringVar(value=str(self.config["max_delay"]))
+
+        DarkEntry(delay_box, textvariable=self.var_min_delay, width=6).pack(side="left")
+        tk.Label(delay_box, text=" ~ ", bg=THEME["bg_elevated"],
+                 fg=THEME["fg_muted"]).pack(side="left")
+        DarkEntry(delay_box, textvariable=self.var_max_delay, width=6).pack(side="left")
+        tk.Label(delay_box, text="  随机", bg=THEME["bg_elevated"],
+                 fg=THEME["fg_subtle"], font=("Microsoft YaHei", 9)).pack(side="left")
+
+        self.var_retry = tk.IntVar(value=self.config["retry"])
+
+        row2 = tk.Frame(pad, bg=THEME["bg_elevated"])
+        row2.pack(fill="x", pady=(8, 0))
+        tk.Label(row2, text="重试次数", bg=THEME["bg_elevated"],
+                 fg=THEME["fg_muted"], font=("Microsoft YaHei", 10)).pack(side="left")
+        ttk.Combobox(row2, textvariable=self.var_retry, state="readonly", width=4,
+                     values=[0, 1, 2, 3]).pack(side="right")
+
+        row3 = tk.Frame(pad, bg=THEME["bg_elevated"])
+        row3.pack(fill="x", pady=(8, 0))
+        tk.Label(row3, text="打开窗口等待（秒）", bg=THEME["bg_elevated"],
+                 fg=THEME["fg_muted"], font=("Microsoft YaHei", 10)).pack(side="left")
+        self.var_open_wait = tk.StringVar(value=str(self.config["open_window_wait"]))
+        DarkEntry(row3, textvariable=self.var_open_wait, width=5).pack(side="right")
+
+        row4 = tk.Frame(pad, bg=THEME["bg_elevated"])
+        row4.pack(fill="x", pady=(8, 0))
+        tk.Label(row4, text="发送后等待（秒）", bg=THEME["bg_elevated"],
+                 fg=THEME["fg_muted"], font=("Microsoft YaHei", 10)).pack(side="left")
+        self.var_send_wait = tk.StringVar(value=str(self.config["send_wait"]))
+        DarkEntry(row4, textvariable=self.var_send_wait, width=5).pack(side="right")
 
         # 进度条
-        progress_box = ttk.Frame(card, style="Card.TFrame")
-        progress_box.pack(fill="x")
+        tk.Label(pad, text="发送进度", bg=THEME["bg_elevated"],
+                 fg=THEME["fg_muted"], font=("Microsoft YaHei", 10)).pack(anchor="w", pady=(18, 4))
+        self.progress = ProgressBar(pad, width=300, height=8, bg=THEME["bg_elevated"])
+        self.progress.pack(fill="x")
+        self.var_progress_text = tk.StringVar(value="")
+        tk.Label(pad, textvariable=self.var_progress_text, bg=THEME["bg_elevated"],
+                 fg=THEME["fg_subtle"], font=("Microsoft YaHei", 8)).pack(anchor="e", pady=(2, 0))
 
-        self.progress_bar = ProgressBar(progress_box, width=300, height=6)
-        self.progress_bar.pack(side="left", padx=(0, 10))
+        # 倒计时
+        self.var_countdown = tk.StringVar(value="")
+        tk.Label(pad, textvariable=self.var_countdown, bg=THEME["bg_elevated"],
+                 fg=THEME["warn"], font=("Microsoft YaHei", 10)).pack(anchor="e", pady=(8, 0))
 
-        self.var_progress = tk.StringVar(value="0%")
-        ttk.Label(progress_box, textvariable=self.var_progress, style="CardMuted.TLabel").pack(side="left")
+    # ---- 底部卡片：日志 + 操作 ----
 
-    def _build_status_bar(self):
-        self.status_bar = ttk.Frame(self.root, style="Card.TFrame", padding=(16, 8))
-        self.status_bar.pack(fill="x", padx=12, pady=(0, 12))
+    def _build_bottom_card(self, parent):
+        card = tk.Frame(parent, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
+                        highlightthickness=1)
+        card.pack(fill="both", expand=True)
 
-        left_box = ttk.Frame(self.status_bar, style="Card.TFrame")
-        left_box.pack(side="left")
+        pad = tk.Frame(card, bg=THEME["bg_elevated"], padx=16, pady=16)
+        pad.pack(fill="both", expand=True)
+
+        # 标题行
+        header = tk.Frame(pad, bg=THEME["bg_elevated"])
+        header.pack(fill="x", pady=(0, 8))
+
+        tk.Label(header, text="运行日志", bg=THEME["bg_elevated"],
+                 fg=THEME["fg"], font=("Microsoft YaHei", 12, "bold")).pack(side="left")
+
+        btn_row = tk.Frame(header, bg=THEME["bg_elevated"])
+        btn_row.pack(side="right")
+        DarkButton(btn_row, "🗑 清空日志", command=self._clear_log,
+                   width=90, height=28, bg=THEME["bg_elevated"]).pack(side="left", padx=4)
 
         self.var_status_text = tk.StringVar(value="就绪")
-        ttk.Label(left_box, textvariable=self.var_status_text, style="CardMuted.TLabel").pack(side="left")
+        tk.Label(header, textvariable=self.var_status_text, bg=THEME["bg_elevated"],
+                 fg=THEME["accent"], font=("Microsoft YaHei", 9, "bold")).pack(side="left", padx=16)
 
-        ttk.Separator(left_box, orient="vertical").pack(side="left", fill="y", padx=12)
+        # 日志框
+        self.log_box = DarkText(pad, height=6)
+        self.log_box.pack(fill="both", expand=True)
+        self.log_box.configure(state="disabled")
 
-        ttk.Label(left_box, text="WeChat Auto Sender", style="CardMuted.TLabel").pack(side="left", padx=(0, 12))
-
-        right_box = ttk.Frame(self.status_bar, style="Card.TFrame")
-        right_box.pack(side="right")
-
-        ttk.Label(right_box, text="v1.0", style="CardMuted.TLabel").pack(side="right")
-
-    # ---------------- 数据 ----------------
+    # ======================== 数据 ========================
 
     def _load_data(self):
         self.recipients = load_recipients(RECIPIENTS_FILE)
         self._refresh_tree()
-        self._log("欢迎使用 Prism", "highlight")
-        self._log(f"数据源: {RECIPIENTS_FILE}", "info")
+
+    def _save_data(self):
+        save_recipients(RECIPIENTS_FILE, self.recipients)
 
     def _refresh_tree(self):
         for item in self.tree.get_children():
@@ -747,11 +791,7 @@ class MassSenderApp:
             tag = "oddrow" if i % 2 == 0 else "evenrow"
             attachments = split_files(r.get("file", ""))
             if attachments:
-                if len(attachments) == 1:
-                    ext = os.path.splitext(attachments[0])[1].lower()
-                    file_disp = f"📎{ext or '📄'}"
-                else:
-                    file_disp = f"📎x{len(attachments)}"
+                file_disp = f"📎{len(attachments)}个" if len(attachments) > 1 else "📎1个"
             else:
                 file_disp = "—"
             schedule = r.get("schedule", "")
@@ -763,7 +803,8 @@ class MassSenderApp:
                 file_disp,
                 schedule_disp,
             ), tags=(tag,))
-        self.var_status.set(f"共 {len(self.recipients)} 位收件人")
+        self.var_count.set(f"共 {len(self.recipients)} 条记录")
+        self._save_data()
 
     def _selected_index(self):
         sel = self.tree.selection()
@@ -771,66 +812,39 @@ class MassSenderApp:
             return -1
         return self.tree.index(sel[0])
 
-    def save_data(self):
-        try:
-            save_recipients(RECIPIENTS_FILE, self.recipients)
-            self._log(f"已保存 {len(self.recipients)} 条记录", "success")
-            Toast(self.root, "保存成功", "success")
-        except Exception as e:
-            Toast(self.root, f"保存失败: {e}", "error")
-
-    def import_csv(self):
-        path = filedialog.askopenfilename(
-            title="选择 CSV 文件",
-            filetypes=[("CSV 文件", "*.csv"), ("所有文件", "*.*")]
-        )
-        if not path:
-            return
-        try:
-            data = load_recipients(path)
-            if not data:
-                Toast(self.root, "文件中没有有效数据", "warn")
-                return
-            if messagebox.askyesno("确认", f"读取到 {len(data)} 条记录，是否替换当前列表？"):
-                self.recipients = data
-                self._refresh_tree()
-                self._log(f"已导入 {len(data)} 条记录", "success")
-                Toast(self.root, f"已导入 {len(data)} 条记录", "success")
-        except Exception as e:
-            Toast(self.root, f"导入失败: {e}", "error")
-
-    # ---------------- 增删改 ----------------
+    # ======================== 收件人操作 ========================
 
     def add_recipient(self):
         self._open_editor(None)
 
-    def batch_add(self):
-        """打开批量添加弹窗"""
-        self._open_batch_editor()
-
     def edit_recipient(self):
         idx = self._selected_index()
         if idx < 0:
-            Toast(self.root, "请先选择一条记录", "warn")
+            Toast(self.root, "请先选择一位收件人", "warn")
             return
         self._open_editor(idx)
 
     def delete_recipient(self):
         idx = self._selected_index()
         if idx < 0:
-            Toast(self.root, "请先选择一条记录", "warn")
+            Toast(self.root, "请先选择一位收件人", "warn")
             return
         name = self.recipients[idx]["name"]
-        if messagebox.askyesno("确认删除", f"确定删除「{name}」吗？"):
-            del self.recipients[idx]
+        if messagebox.askyesno("确认删除", f"确定删除收件人 [{name}]？"):
+            self.recipients.pop(idx)
             self._refresh_tree()
-            Toast(self.root, "已删除", "info")
+            Toast(self.root, f"已删除：{name}", "success")
+
+    def batch_add(self):
+        self._open_batch_editor()
+
+    # ======================== 编辑弹窗 ========================
 
     def _open_editor(self, idx):
         is_edit = idx is not None
         win = tk.Toplevel(self.root)
         win.title("编辑收件人" if is_edit else "添加收件人")
-        win.geometry("620x700")
+        win.geometry("620x720")
         win.resizable(False, False)
         win.configure(bg=THEME["bg"])
         win.transient(self.root)
@@ -845,11 +859,9 @@ class MassSenderApp:
 
         ttk.Label(outer, text="类型").grid(row=1, column=0, sticky="w", pady=6)
         var_type = tk.StringVar(value=self.recipients[idx].get("type", "contact") if is_edit else "contact")
-        type_combo = ttk.Combobox(outer, textvariable=var_type, state="readonly", width=12,
-                                  values=["contact", "group"])
-        type_combo.grid(row=1, column=1, sticky="w", pady=6, padx=(12, 0))
+        ttk.Combobox(outer, textvariable=var_type, state="readonly", width=12,
+                     values=["contact", "group"]).grid(row=1, column=1, sticky="w", pady=6, padx=(12, 0))
 
-        # 消息模板
         ttk.Label(outer, text="消息模板").grid(row=2, column=0, sticky="nw", pady=(6, 0))
         msg_box = ttk.Frame(outer)
         msg_box.grid(row=2, column=1, sticky="we", pady=6, padx=(12, 0))
@@ -858,38 +870,26 @@ class MassSenderApp:
         if is_edit:
             msg_text.insert("1.0", self.recipients[idx].get("message", ""))
 
-        tpl_btn_row = ttk.Frame(outer)
-        tpl_btn_row.grid(row=3, column=1, sticky="w", padx=(12, 0), pady=(0, 0))
+        tpl_row = ttk.Frame(outer)
+        tpl_row.grid(row=3, column=1, sticky="w", padx=(12, 0), pady=(0, 0))
+        DarkButton(tpl_row, "📚 套用模板库", command=lambda: self._open_template_picker(
+            on_pick=lambda tpl: (msg_text.delete("1.0", "end"), msg_text.insert("1.0", tpl))
+        ), width=130, height=26, bg=THEME["bg"]).pack(side="left")
+        ttk.Label(tpl_row, text="💡 可用 {name} 占位符", style="Muted.TLabel").pack(side="left", padx=8)
 
-        def pick_template():
-            self._open_template_picker(on_pick=lambda tpl: (
-                msg_text.delete("1.0", "end"), msg_text.insert("1.0", tpl)
-            ))
-
-        DarkButton(tpl_btn_row, "📚 套用模板库", command=pick_template, width=130, height=26).pack(side="left")
-        ttk.Label(tpl_btn_row, text="💡 可用 {name} 占位符",
-                  style="Muted.TLabel").pack(side="left", padx=8)
-
-        # 定时
         ttk.Label(outer, text="定时").grid(row=4, column=0, sticky="w", pady=(8, 0))
-        schedule_box = ttk.Frame(outer)
-        schedule_box.grid(row=4, column=1, sticky="we", pady=(8, 0), padx=(12, 0))
+        sched_box = ttk.Frame(outer)
+        sched_box.grid(row=4, column=1, sticky="we", pady=(8, 0), padx=(12, 0))
         var_schedule = tk.StringVar(value=self.recipients[idx].get("schedule", "") if is_edit else "")
-        DarkEntry(schedule_box, textvariable=var_schedule, width=24).pack(side="left")
-        ttk.Label(schedule_box, text="如：14:30 或 2026-07-15 14:30",
-                  style="Hint.TLabel").pack(side="left", padx=8)
+        DarkEntry(sched_box, textvariable=var_schedule, width=24).pack(side="left")
+        ttk.Label(sched_box, text="如：14:30 或 2026-07-15 14:30", style="Hint.TLabel").pack(side="left", padx=8)
 
-        # 附件管理
         ttk.Label(outer, text="附件").grid(row=5, column=0, sticky="nw", pady=(8, 0))
-        file_box = ttk.Frame(outer, style="Card.TFrame", padding=8)
+        file_box = tk.Frame(outer, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
+                            highlightthickness=1, padx=10, pady=10)
         file_box.grid(row=5, column=1, sticky="we", pady=(8, 0), padx=(12, 0))
 
-        files_var = tk.StringVar(value="")
-        if is_edit:
-            files_var.set(self.recipients[idx].get("file", ""))
-        files_list_frame = ttk.Frame(file_box, style="Card.TFrame")
-        files_list_frame.pack(fill="x")
-
+        files_var = tk.StringVar(value=self.recipients[idx].get("file", "") if is_edit else "")
         files_display_var = tk.StringVar(value="")
         files_count_var = tk.StringVar(value="")
 
@@ -902,43 +902,34 @@ class MassSenderApp:
                 files_display_var.set("\n".join(f"  • {os.path.basename(p)}" for p in paths))
                 files_count_var.set(f"共 {len(paths)} 个")
 
-        files_count_lbl = tk.Label(files_list_frame, textvariable=files_count_var,
-                                   bg=THEME["bg_elevated"], fg=THEME["accent"],
-                                   font=("Microsoft YaHei", 9, "bold"))
-        files_count_lbl.pack(side="top", anchor="e")
-        files_text = tk.Label(files_list_frame, textvariable=files_display_var,
-                              bg=THEME["bg_elevated"], fg=THEME["fg_muted"],
-                              font=("Consolas", 9), justify="left", anchor="w",
-                              wraplength=360, height=4)
-        files_text.pack(side="top", fill="x", pady=(2, 6))
+        tk.Label(file_box, textvariable=files_count_var, bg=THEME["bg_elevated"],
+                 fg=THEME["accent"], font=("Microsoft YaHei", 9, "bold")).pack(anchor="e")
+        tk.Label(file_box, textvariable=files_display_var, bg=THEME["bg_elevated"],
+                 fg=THEME["fg_muted"], font=("Consolas", 9), justify="left",
+                 anchor="w", wraplength=360, height=4).pack(fill="x", pady=(2, 6))
 
-        file_btn_row = ttk.Frame(file_box, style="Card.TFrame")
-        file_btn_row.pack(fill="x")
+        fbtn_row = tk.Frame(file_box, bg=THEME["bg_elevated"])
+        fbtn_row.pack(fill="x")
 
         def pick_files():
             paths = filedialog.askopenfilenames(
                 title="选择文件（可多选）",
-                filetypes=[
-                    ("所有文件", "*.*"),
-                    ("图片", "*.png *.jpg *.jpeg *.bmp *.gif *.webp"),
-                    ("文档", "*.pdf *.doc *.docx *.xls *.xlsx *.ppt *.pptx *.txt"),
-                ],
+                filetypes=[("所有文件", "*.*"), ("图片", "*.png *.jpg *.jpeg *.bmp *.gif *.webp"),
+                           ("文档", "*.pdf *.doc *.docx *.xls *.xlsx *.ppt *.pptx *.txt")],
             )
-            if not paths:
-                return
+            if not paths: return
             existing = split_files(files_var.get())
-            new_all = existing + list(paths)
-            files_var.set("|".join(new_all))
+            files_var.set("|".join(existing + list(paths)))
             refresh_files_display()
 
         def clear_files():
             files_var.set("")
             refresh_files_display()
 
-        DarkButton(file_btn_row, "📁 多选文件", command=pick_files,
-                   style="accent", width=110, height=28).pack(side="left", padx=2)
-        DarkButton(file_btn_row, "🗑 清空", command=clear_files,
-                   width=80, height=28).pack(side="left", padx=2)
+        DarkButton(fbtn_row, "📁 多选文件", command=pick_files, style="accent",
+                   width=110, height=28, bg=THEME["bg_elevated"]).pack(side="left", padx=2)
+        DarkButton(fbtn_row, "🗑 清空", command=clear_files,
+                   width=80, height=28, bg=THEME["bg_elevated"]).pack(side="left", padx=2)
 
         ttk.Label(file_box, text="💡 多个附件将按顺序逐个发送（图片轮播）",
                   style="Hint.TLabel").pack(anchor="w", pady=(6, 0))
@@ -948,13 +939,12 @@ class MassSenderApp:
         # 预览
         ttk.Label(outer, text="预览").grid(row=6, column=0, sticky="nw", pady=(8, 0))
         preview_var = tk.StringVar(value="")
-        preview_box = ttk.Frame(outer, style="Card.TFrame", padding=10)
+        preview_box = tk.Frame(outer, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
+                               highlightthickness=1, padx=10, pady=10)
         preview_box.grid(row=6, column=1, sticky="we", pady=(8, 0), padx=(12, 0))
-        preview_lbl = tk.Label(preview_box, textvariable=preview_var,
-                               bg=THEME["bg_elevated"], fg=THEME["accent"],
-                               font=("Microsoft YaHei", 10), wraplength=380,
-                               justify="left", anchor="w")
-        preview_lbl.pack(fill="x")
+        tk.Label(preview_box, textvariable=preview_var, bg=THEME["bg_elevated"],
+                 fg=THEME["accent"], font=("Microsoft YaHei", 10), wraplength=380,
+                 justify="left", anchor="w").pack(fill="x")
 
         def update_preview(*_):
             name = var_name.get().strip() or "{name}"
@@ -974,10 +964,9 @@ class MassSenderApp:
             message = msg_text.get("1.0", "end-1c")
             files = files_var.get().strip()
             schedule = var_schedule.get().strip()
-            if schedule:
-                if parse_schedule(schedule) is None:
-                    Toast(win, "定时格式错误，正确示例：14:30 或 2026-07-15 14:30", "error")
-                    return
+            if schedule and parse_schedule(schedule) is None:
+                Toast(win, "定时格式错误，正确示例：14:30 或 2026-07-15 14:30", "error")
+                return
             if not name:
                 Toast(win, "名称不能为空", "error")
                 return
@@ -991,16 +980,14 @@ class MassSenderApp:
             Toast(self.root, "保存成功", "success")
             win.destroy()
 
-        DarkButton(btn_frame, "保存", command=on_save, style="accent", width=90, height=32).pack(side="right", padx=4)
-        DarkButton(btn_frame, "取消", command=win.destroy, width=90, height=32).pack(side="right", padx=4)
+        DarkButton(btn_frame, "保存", command=on_save, style="accent",
+                   width=90, height=32, bg=THEME["bg"]).pack(side="right", padx=4)
+        DarkButton(btn_frame, "取消", command=win.destroy,
+                   width=90, height=32, bg=THEME["bg"]).pack(side="right", padx=4)
+
+    # ======================== 批量添加 ========================
 
     def _open_batch_editor(self):
-        """批量添加弹窗（重写版）：
-        - 统一消息模板（支持模板库）
-        - 统一附件（多文件轮播）
-        - 收件人表格：双击/编辑行可弹出可编辑弹窗
-        - 支持批量粘贴导入、剪贴板导入
-        """
         win = tk.Toplevel(self.root)
         win.title("批量添加收件人")
         win.geometry("860x680")
@@ -1011,28 +998,32 @@ class MassSenderApp:
         outer = ttk.Frame(win, padding=14)
         outer.pack(fill="both", expand=True)
 
-        # ===== 顶部：通用消息模板 =====
-        msg_card = ttk.Frame(outer, style="Card.TFrame", padding=10)
+        # 消息模板
+        msg_card = tk.Frame(outer, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
+                            highlightthickness=1, padx=12, pady=12)
         msg_card.pack(fill="x", pady=(0, 10))
 
-        head_row = ttk.Frame(msg_card, style="Card.TFrame")
-        head_row.pack(fill="x")
-        ttk.Label(head_row, text="统一消息模板", style="CardTitle.TLabel").pack(side="left")
-        DarkButton(head_row, "📚 模板库", command=lambda: self._open_template_picker(
+        head = tk.Frame(msg_card, bg=THEME["bg_elevated"])
+        head.pack(fill="x")
+        tk.Label(head, text="统一消息模板", bg=THEME["bg_elevated"],
+                 fg=THEME["fg"], font=("Microsoft YaHei", 12, "bold")).pack(side="left")
+        DarkButton(head, "📚 模板库", command=lambda: self._open_template_picker(
             on_pick=lambda tpl: (batch_msg_text.delete("1.0", "end"), batch_msg_text.insert("1.0", tpl))
-        ), width=100, height=24).pack(side="right")
+        ), width=100, height=24, bg=THEME["bg_elevated"]).pack(side="right")
 
         batch_msg_text = DarkText(msg_card, height=4)
         batch_msg_text.pack(fill="x", pady=(6, 4))
         batch_msg_text.insert("1.0", "你好 {name}，这是一条群发消息。")
-        ttk.Label(msg_card, text="💡 可用 {name} 占位符，发送给每个收件人时自动替换",
+        ttk.Label(msg_card, text="💡 可用 {name} 占位符，发送时自动替换",
                   style="Hint.TLabel").pack(anchor="w")
 
-        # ===== 中部：统一附件 =====
-        file_card = ttk.Frame(outer, style="Card.TFrame", padding=10)
+        # 附件
+        file_card = tk.Frame(outer, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
+                             highlightthickness=1, padx=12, pady=12)
         file_card.pack(fill="x", pady=(0, 10))
 
-        ttk.Label(file_card, text="统一附件（多图轮播）", style="CardTitle.TLabel").pack(anchor="w")
+        tk.Label(file_card, text="统一附件（多图轮播）", bg=THEME["bg_elevated"],
+                 fg=THEME["fg"], font=("Microsoft YaHei", 12, "bold")).pack(anchor="w")
 
         batch_files_var = tk.StringVar(value="")
         batch_files_display = tk.StringVar(value="(无附件)")
@@ -1049,50 +1040,44 @@ class MassSenderApp:
 
         def pick_batch_files():
             paths = filedialog.askopenfilenames(
-                title="选择文件（可多选，应用于所有收件人）",
-                filetypes=[
-                    ("所有文件", "*.*"),
-                    ("图片", "*.png *.jpg *.jpeg *.bmp *.gif *.webp"),
-                    ("文档", "*.pdf *.doc *.docx *.xls *.xlsx *.ppt *.pptx *.txt"),
-                ],
+                title="选择文件（可多选）",
+                filetypes=[("所有文件", "*.*"), ("图片", "*.png *.jpg *.jpeg *.bmp *.gif *.webp"),
+                           ("文档", "*.pdf *.doc *.docx *.xls *.xlsx *.ppt *.pptx *.txt")],
             )
-            if not paths:
-                return
+            if not paths: return
             existing = split_files(batch_files_var.get())
-            new_all = existing + list(paths)
-            batch_files_var.set("|".join(new_all))
+            batch_files_var.set("|".join(existing + list(paths)))
             refresh_batch_files()
 
         def clear_batch_files():
             batch_files_var.set("")
             refresh_batch_files()
 
-        info_row = ttk.Frame(file_card, style="Card.TFrame")
+        info_row = tk.Frame(file_card, bg=THEME["bg_elevated"])
         info_row.pack(fill="x", pady=(6, 0))
-        count_lbl = tk.Label(info_row, textvariable=batch_files_count,
-                             bg=THEME["bg_elevated"], fg=THEME["accent"],
-                             font=("Microsoft YaHei", 9, "bold"))
-        count_lbl.pack(side="right")
-        files_lbl = tk.Label(info_row, textvariable=batch_files_display,
-                             bg=THEME["bg_elevated"], fg=THEME["fg_muted"],
-                             font=("Consolas", 9), anchor="w")
-        files_lbl.pack(side="left", fill="x", expand=True)
+        tk.Label(info_row, textvariable=batch_files_count, bg=THEME["bg_elevated"],
+                 fg=THEME["accent"], font=("Microsoft YaHei", 9, "bold")).pack(side="right")
+        tk.Label(info_row, textvariable=batch_files_display, bg=THEME["bg_elevated"],
+                 fg=THEME["fg_muted"], font=("Consolas", 9), anchor="w").pack(side="left", fill="x", expand=True)
 
-        fbtn_row = ttk.Frame(file_card, style="Card.TFrame")
+        fbtn_row = tk.Frame(file_card, bg=THEME["bg_elevated"])
         fbtn_row.pack(fill="x", pady=(4, 0))
-        DarkButton(fbtn_row, "📁 多选文件", command=pick_batch_files,
-                   style="accent", width=110, height=28).pack(side="left", padx=2)
+        DarkButton(fbtn_row, "📁 多选文件", command=pick_batch_files, style="accent",
+                   width=110, height=28, bg=THEME["bg_elevated"]).pack(side="left", padx=2)
         DarkButton(fbtn_row, "🗑 清空", command=clear_batch_files,
-                   width=80, height=28).pack(side="left", padx=2)
+                   width=80, height=28, bg=THEME["bg_elevated"]).pack(side="left", padx=2)
 
-        # ===== 下部：收件人表格 =====
-        list_card = ttk.Frame(outer, style="Card.TFrame", padding=10)
+        # 收件人表格
+        list_card = tk.Frame(outer, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
+                             highlightthickness=1, padx=12, pady=12)
         list_card.pack(fill="both", expand=True)
 
-        list_head = ttk.Frame(list_card, style="Card.TFrame")
+        list_head = tk.Frame(list_card, bg=THEME["bg_elevated"])
         list_head.pack(fill="x")
-        ttk.Label(list_head, text="收件人列表", style="CardTitle.TLabel").pack(side="left")
-        ttk.Label(list_head, text="双击编辑 / 右键删除", style="Hint.TLabel").pack(side="left", padx=10)
+        tk.Label(list_head, text="收件人列表", bg=THEME["bg_elevated"],
+                 fg=THEME["fg"], font=("Microsoft YaHei", 12, "bold")).pack(side="left")
+        tk.Label(list_head, text="双击编辑 / 右键删除", bg=THEME["bg_elevated"],
+                 fg=THEME["fg_subtle"], font=("Microsoft YaHei", 9)).pack(side="left", padx=10)
 
         columns = ("idx", "type", "name", "schedule")
         batch_tree = ttk.Treeview(list_card, columns=columns, show="headings", height=8)
@@ -1105,7 +1090,6 @@ class MassSenderApp:
         batch_tree.column("name", width=380, anchor="w")
         batch_tree.column("schedule", width=140, anchor="center", stretch=False)
 
-        # 预填 3 行
         for i in range(1, 4):
             batch_tree.insert("", "end", iid=str(i), values=(i, "contact", "", ""))
 
@@ -1122,9 +1106,7 @@ class MassSenderApp:
                 batch_tree.item(item, values=vals)
 
         def _edit_row(item_id):
-            """弹出可编辑弹窗编辑一行收件人"""
             vals = list(batch_tree.item(item_id, "values"))
-            # vals: [idx, type, name, schedule]
             edit = tk.Toplevel(win)
             edit.title("编辑收件人")
             edit.geometry("460x320")
@@ -1148,7 +1130,7 @@ class MassSenderApp:
             ttk.Label(ef, text="定时").grid(row=2, column=0, sticky="w", pady=8)
             v_sched = tk.StringVar(value=vals[3] if len(vals) > 3 else "")
             DarkEntry(ef, textvariable=v_sched, width=24).grid(row=2, column=1, sticky="we", padx=(12, 0), pady=8)
-            ttk.Label(ef, text="格式：14:30 或 2026-07-15 14:30（留空表示立即发送）",
+            ttk.Label(ef, text="格式：14:30 或 2026-07-15 14:30（留空=立即发送）",
                       style="Hint.TLabel").grid(row=3, column=1, sticky="w", padx=(12, 0))
 
             btn_row = ttk.Frame(ef)
@@ -1161,15 +1143,16 @@ class MassSenderApp:
                     return
                 tp = v_type.get() if v_type.get() in ("contact", "group") else "contact"
                 sc = v_sched.get().strip()
-                if sc:
-                    if parse_schedule(sc) is None:
-                        Toast(edit, "定时格式错误", "error")
-                        return
+                if sc and parse_schedule(sc) is None:
+                    Toast(edit, "定时格式错误", "error")
+                    return
                 batch_tree.item(item_id, values=(vals[0], tp, nm, sc))
                 edit.destroy()
 
-            DarkButton(btn_row, "保存", command=save_row, style="accent", width=90, height=30).pack(side="right", padx=4)
-            DarkButton(btn_row, "取消", command=edit.destroy, width=90, height=30).pack(side="right", padx=4)
+            DarkButton(btn_row, "保存", command=save_row, style="accent",
+                       width=90, height=30, bg=THEME["bg"]).pack(side="right", padx=4)
+            DarkButton(btn_row, "取消", command=edit.destroy,
+                       width=90, height=30, bg=THEME["bg"]).pack(side="right", padx=4)
 
         batch_tree.bind("<Double-1>", lambda e: (
             _edit_row(batch_tree.focus()) if batch_tree.focus() else None
@@ -1186,7 +1169,7 @@ class MassSenderApp:
 
         batch_tree.bind("<Button-3>", on_right_click)
 
-        # ===== 表格按钮 =====
+        # 按钮
         tree_btn_row = ttk.Frame(outer)
         tree_btn_row.pack(fill="x", pady=(8, 0))
 
@@ -1196,25 +1179,21 @@ class MassSenderApp:
             _edit_row(iid)
 
         def del_row():
-            sel = batch_tree.selection()
-            for item in sel:
+            for item in batch_tree.selection():
                 batch_tree.delete(item)
             refresh_indices()
 
         def batch_import():
-            """从剪贴板批量导入（每行一个名称）"""
             try:
                 import pyperclip
                 text = pyperclip.paste()
                 if not text:
                     Toast(win, "剪贴板为空", "warn")
                     return
-                # 清掉现有空行
                 for item in list(batch_tree.get_children()):
                     vals = batch_tree.item(item, "values")
                     if not vals[2].strip():
                         batch_tree.delete(item)
-                # 添加
                 lines = [l.strip() for l in text.splitlines() if l.strip()]
                 for line in lines:
                     rtype = "group" if (line.endswith("群") or line.endswith("Group")) else "contact"
@@ -1225,15 +1204,15 @@ class MassSenderApp:
                 Toast(win, f"导入失败: {e}", "error")
 
         DarkButton(tree_btn_row, "➕ 加行", command=add_row,
-                   width=80, height=28).pack(side="left", padx=2)
+                   width=80, height=28, bg=THEME["bg"]).pack(side="left", padx=2)
         DarkButton(tree_btn_row, "➖ 删行", command=del_row,
-                   width=80, height=28).pack(side="left", padx=2)
+                   width=80, height=28, bg=THEME["bg"]).pack(side="left", padx=2)
         DarkButton(tree_btn_row, "📋 从剪贴板导入", command=batch_import,
-                   style="accent", width=140, height=28).pack(side="left", padx=2)
+                   style="accent", width=140, height=28, bg=THEME["bg"]).pack(side="left", padx=2)
 
-        # ===== 底部 =====
-        bottom_btn_row = ttk.Frame(outer)
-        bottom_btn_row.pack(fill="x", pady=(14, 0))
+        # 底部
+        bottom = ttk.Frame(outer)
+        bottom.pack(fill="x", pady=(14, 0))
 
         def on_batch_save():
             template = batch_msg_text.get("1.0", "end-1c")
@@ -1243,83 +1222,98 @@ class MassSenderApp:
                 vals = batch_tree.item(item, "values")
                 rtype, name = vals[1], vals[2].strip()
                 schedule = vals[3] if len(vals) > 3 else ""
-                if not name:
-                    continue
+                if not name: continue
                 self.recipients.append({
-                    "name": name,
-                    "type": rtype if rtype in ("contact", "group") else "contact",
-                    "message": template,
-                    "file": files,
-                    "schedule": schedule,
+                    "name": name, "type": rtype if rtype in ("contact", "group") else "contact",
+                    "message": template, "file": files, "schedule": schedule,
                 })
                 added += 1
             self._refresh_tree()
-            if added:
-                Toast(self.root, f"已添加 {added} 位收件人", "success")
-            else:
-                Toast(self.root, "未添加任何收件人", "warn")
+            Toast(self.root, f"已添加 {added} 位收件人", "success" if added else "warn")
             win.destroy()
 
-        DarkButton(bottom_btn_row, "保存", command=on_batch_save,
-                   style="accent", width=120, height=32).pack(side="right", padx=4)
-        DarkButton(bottom_btn_row, "取消", command=win.destroy,
-                   width=90, height=32).pack(side="right", padx=4)
+        DarkButton(bottom, "保存", command=on_batch_save, style="accent",
+                   width=120, height=32, bg=THEME["bg"]).pack(side="right", padx=4)
+        DarkButton(bottom, "取消", command=win.destroy,
+                   width=90, height=32, bg=THEME["bg"]).pack(side="right", padx=4)
 
-    # ---------------- 状态检查 ----------------
+    # ======================== 日志 ========================
+
+    def _log(self, msg, level="info"):
+        colors = {
+            "info":      THEME["log_fg"],
+            "success":   THEME["log_success"],
+            "error":     THEME["log_error"],
+            "warn":      THEME["log_warn"],
+            "highlight": THEME["log_highlight"],
+        }
+        color = colors.get(level, THEME["log_fg"])
+        ts = datetime.now().strftime("%H:%M:%S")
+
+        def _append():
+            try:
+                self.log_box.configure(state="normal")
+                self.log_box.insert("end", f"[{ts}] ", "ts")
+                self.log_box.tag_configure("ts", foreground=THEME["fg_subtle"])
+                self.log_box.insert("end", f"{msg}\n", level)
+                self.log_box.tag_configure(level, foreground=color)
+                self.log_box.see("end")
+                self.log_box.configure(state="disabled")
+            except tk.TclError:
+                pass
+
+        self.root.after(0, _append)
+
+        try:
+            with open(self._log_file, "a", encoding="utf-8") as f:
+                f.write(f"[{ts}] {msg}\n")
+        except Exception:
+            pass
+
+    def _clear_log(self):
+        try:
+            self.log_box.configure(state="normal")
+            self.log_box.delete("1.0", "end")
+            self.log_box.configure(state="disabled")
+        except tk.TclError:
+            pass
+
+    # ======================== 微信状态 ========================
 
     def _check_wechat_status(self):
         if self.sending:
-            self.indicator.set_state("running")
+            return
+        hwnd, title = find_wechat_window()
+        if hwnd:
+            self.indicator.set_state("ready")
+            self.var_status_top.set(f"微信：{title[:20]}")
         else:
-            hwnd, _ = find_wechat_window()
-            self.indicator.set_state("ready" if hwnd else "idle")
-        self.root.after(2000, self._check_wechat_status)
+            self.indicator.set_state("idle")
+            self.var_status_top.set("微信：未找到")
+        self.root.after(5000, self._check_wechat_status)
 
-    # ---------------- 日志 ----------------
-
-    def _log(self, msg, tag="info"):
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        line = f"[{timestamp}] {msg}\n"
-
-        def _append():
-            self.log_text.configure(state="normal")
-            self.log_text.insert("end", line, tag)
-            self.log_text.see("end")
-            self.log_text.configure(state="disabled")
-
-        try:
-            self.root.after(0, _append)
-        except RuntimeError:
-            pass
-
-    # ---------------- 发送 ----------------
+    # ======================== 配置收集 ========================
 
     def _collect_config(self):
         try:
-            cfg = {
-                "min_delay": float(self.var_min_delay.get()),
-                "max_delay": float(self.var_max_delay.get()),
-                "step_delay": DEFAULT_CONFIG["step_delay"],
-                "search_wait": float(self.var_search_wait.get()),
-                "max_retries": int(self.var_max_retries.get()),
-                "click_x_ratio": float(self.var_click_x.get()),
-                "click_y_ratio": float(self.var_click_y.get()),
-            }
-            if cfg["min_delay"] > cfg["max_delay"]:
-                cfg["min_delay"], cfg["max_delay"] = cfg["max_delay"], cfg["min_delay"]
-            return cfg
-        except (ValueError, AttributeError) as e:
-            Toast(self.root, f"配置错误: {e}", "error")
+            min_delay = float(self.var_min_delay.get())
+            max_delay = float(self.var_max_delay.get())
+            retry = int(self.var_retry.get())
+            open_wait = float(self.var_open_wait.get())
+            send_wait = float(self.var_send_wait.get())
+        except ValueError:
+            Toast(self.root, "配置参数必须是数字", "error")
             return None
+        if min_delay < 1 or max_delay < 1 or open_wait < 0.1 or send_wait < 0.1:
+            Toast(self.root, "参数不能小于合理范围", "error")
+            return None
+        self.config.update({
+            "min_delay": min_delay, "max_delay": max(max_delay, min_delay),
+            "retry": retry, "open_window_wait": open_wait, "send_wait": send_wait,
+        })
+        return self.config
 
-    def _update_progress(self, current, total):
-        try:
-            percent = int((current / total) * 100) if total > 0 else 0
-            self.root.after(0, lambda: self.progress_bar.set(current / total))
-            self.root.after(0, lambda: self.var_progress.set(f"{percent}%"))
-            self.root.after(0, lambda: self.var_status_text.set(f"发送中 {current}/{total}"))
-        except (RuntimeError, AttributeError):
-            pass
+    # ======================== 发送控制 ========================
 
     def start_send(self):
         if self.sending:
@@ -1327,73 +1321,51 @@ class MassSenderApp:
         if not self.recipients:
             Toast(self.root, "收件人列表为空", "warn")
             return
-
         config = self._collect_config()
         if config is None:
             return
-
-        # 校验附件存在性
-        missing_total = []
-        for r in self.recipients:
-            ok, missing = check_files_exist(r)
-            if not ok:
-                for m in missing:
-                    missing_total.append(f"{r['name']}: {os.path.basename(m)}")
-        if missing_total:
-            sample = "\n".join(missing_total[:5])
-            more = f"\n\n...还有 {len(missing_total)-5} 个" if len(missing_total) > 5 else ""
-            if not messagebox.askyesno("附件缺失",
-                                       f"以下附件文件不存在，将无法发送：\n\n{sample}{more}\n\n"
-                                       f"是否仍要继续发送（失败的附件会被跳过）？"):
-                return
-
         hwnd, _ = find_wechat_window()
         if not hwnd:
-            Toast(self.root, "未找到微信窗口", "error")
-            return
-
-        count = len(self.recipients)
-        if not messagebox.askyesno("确认发送",
-                                   f"即将向 {count} 位收件人发送消息。\n\n"
-                                   f"发送过程中请勿操作鼠标键盘。\n"
-                                   f"紧急停止：将鼠标移到屏幕左上角。\n\n"
-                                   f"确认开始吗？"):
-            return
-
-        self.save_data()
-
+            if not messagebox.askyesno("未找到微信", "未检测到微信窗口，是否继续？"):
+                return
         self.sending = True
         self.stop_flag = False
         self.btn_send.configure_state(False)
         self.btn_stop.configure_state(True)
         self.indicator.set_state("running")
-        self.progress_bar.set(0)
-        self.var_progress.set("0%")
+        self.var_status_text.set("发送中...")
 
-        self._log(f"开始群发，共 {count} 位收件人", "highlight")
+        self._log("=" * 40, "highlight")
+        self._log("开始群发", "highlight")
 
         if not activate_wechat(lambda m: self._log(m, "info")):
-            self._log("预检失败：无法激活微信窗口，已中止", "error")
-            self._finish_send()
-            Toast(self.root, "无法激活微信窗口", "error")
-            return
+            self._log("警告：无法激活微信窗口，尝试继续...", "warn")
 
+        # 倒计时
         for i in range(3, 0, -1):
+            self.var_countdown.set(f"⏳ {i} 秒后开始发送...")
             self._log(f"{i} 秒后开始发送...", "warn")
             self.root.update()
             time.sleep(1)
+        self.var_countdown.set("")
 
         t = threading.Thread(target=self._send_worker, args=(config,), daemon=True)
         t.start()
 
     def stop_send(self):
-        if self.sending:
-            self.stop_flag = True
-            self._log("正在停止...", "warn")
-            Toast(self.root, "正在停止发送", "warn")
+        self.stop_flag = True
+        self._log("用户手动停止", "warn")
+        self.var_countdown.set("")
+
+    def _update_progress(self, current, total):
+        if total > 0:
+            self.progress.set(current / total)
+            self.var_progress_text.set(f"{current}/{total}")
+        else:
+            self.progress.set(0)
+            self.var_progress_text.set("")
 
     def _send_worker(self, config):
-        from datetime import datetime
         total = len(self.recipients)
         success, failed = [], []
 
@@ -1402,23 +1374,20 @@ class MassSenderApp:
                 self._log("已手动停止", "warn")
                 break
 
-            # 定时：到达指定时间再发送
+            # 定时
             schedule_str = r.get("schedule", "")
             if schedule_str:
                 target = parse_schedule(schedule_str)
-                if target:
-                    now = datetime.now()
-                    if target > now:
-                        wait_sec = (target - now).total_seconds()
-                        self._log(f"⏰ 等待到 {target.strftime('%Y-%m-%d %H:%M:%S')} 发送 {r['name']}（还需 {int(wait_sec)} 秒）", "warn")
-                        # 分片等待，响应停止
-                        while datetime.now() < target:
-                            if self.stop_flag:
-                                self._log("定时等待中被手动停止", "warn")
-                                break
-                            time.sleep(min(1.0, (target - datetime.now()).total_seconds()))
+                if target and target > datetime.now():
+                    wait_sec = (target - datetime.now()).total_seconds()
+                    self._log(f"⏰ 等待到 {target.strftime('%Y-%m-%d %H:%M:%S')} 发送 {r['name']}（还需 {int(wait_sec)} 秒）", "warn")
+                    while datetime.now() < target:
                         if self.stop_flag:
+                            self._log("定时等待中被手动停止", "warn")
                             break
+                        time.sleep(min(1.0, (target - datetime.now()).total_seconds()))
+                    if self.stop_flag:
+                        break
 
             self._update_progress(idx - 1, total)
 
@@ -1436,7 +1405,6 @@ class MassSenderApp:
                 self._log(f"  ✗ {info}", "error")
                 failed.append((r["name"], info))
                 if "紧急停止" in info:
-                    self._log("检测到紧急停止信号，终止群发。", "error")
                     break
 
             if idx < total and not self.stop_flag:
@@ -1463,7 +1431,6 @@ class MassSenderApp:
         self.var_count.set(f"本次: 成功 {len(success)} / 失败 {len(failed)}")
         Toast(self.root, f"发送完成！成功 {len(success)} / 失败 {len(failed)}",
               "success" if not failed else "warn")
-
         self._finish_send()
 
     def _finish_send(self):
@@ -1473,15 +1440,15 @@ class MassSenderApp:
             self.btn_send.configure_state(True)
             self.btn_stop.configure_state(False)
             self.var_status_text.set("就绪")
+            self.progress.set(0)
+            self.var_progress_text.set("")
             hwnd, _ = find_wechat_window()
             self.indicator.set_state("ready" if hwnd else "idle")
-
         self.root.after(0, _update)
 
-    # ---------------- 单条测试发送 ----------------
+    # ======================== 测试发送 ========================
 
     def test_one(self):
-        """向当前选中的收件人发送一次（不进入群发队列）"""
         if self.sending:
             Toast(self.root, "群发进行中，请先停止", "warn")
             return
@@ -1501,7 +1468,6 @@ class MassSenderApp:
             return
         self.sending = True
         self.btn_send.configure_state(False)
-        self.btn_test.configure_state(False)
         self.indicator.set_state("running")
         self._log(f"🧪 测试发送 → {r['name']}", "highlight")
         if not activate_wechat(lambda m: self._log(m, "info")):
@@ -1525,13 +1491,12 @@ class MassSenderApp:
             Toast(self.root, f"测试失败：{info}", "error")
         self._finish_send()
 
-    # ---------------- 消息模板库 ----------------
+    # ======================== 消息模板库 ========================
 
     def _open_template_picker(self, on_pick=None):
-        """打开消息模板选择弹窗。on_pick: 选中后回调 (template_text)"""
         win = tk.Toplevel(self.root)
         win.title("消息模板库")
-        win.geometry("560x520")
+        win.geometry("580x520")
         win.configure(bg=THEME["bg"])
         win.transient(self.root)
         win.grab_set()
@@ -1543,33 +1508,30 @@ class MassSenderApp:
         ttk.Label(outer, text="选择分类查看模板，点击「使用此模板」插入到消息框",
                   style="Muted.TLabel").pack(anchor="w", pady=(0, 10))
 
-        # 左侧分类
         body = ttk.Frame(outer)
         body.pack(fill="both", expand=True)
 
-        left = ttk.Frame(body, style="Card.TFrame", padding=8)
+        left = tk.Frame(body, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
+                        highlightthickness=1, padx=8, pady=8)
         left.pack(side="left", fill="y")
 
-        right = ttk.Frame(body, style="Card.TFrame", padding=10)
+        right = tk.Frame(body, bg=THEME["bg_elevated"], highlightbackground=THEME["border"],
+                         highlightthickness=1, padx=10, pady=10)
         right.pack(side="left", fill="both", expand=True, padx=(10, 0))
 
         categories = list(MESSAGE_TEMPLATES.keys())
 
         def on_cat_select(_):
             sel = cat_list.curselection()
-            if not sel:
-                return
+            if not sel: return
             cat = categories[sel[0]]
-            templates = MESSAGE_TEMPLATES[cat]
             tpl_list.delete(0, "end")
-            for t in templates:
+            for t in MESSAGE_TEMPLATES[cat]:
                 tpl_list.insert("end", t if t else "(自定义)")
 
-        cat_list = tk.Listbox(left, bg=THEME["bg_input"], fg=THEME["fg"],
-                              selectbackground=THEME["accent"],
-                              selectforeground="#ffffff",
-                              font=("Microsoft YaHei", 11),
-                              borderwidth=0, highlightthickness=0,
+        cat_list = tk.Listbox(left, bg=THEME["bg_elevated"], fg=THEME["fg"],
+                              selectbackground=THEME["accent"], selectforeground="#ffffff",
+                              font=("Microsoft YaHei", 11), borderwidth=0, highlightthickness=0,
                               width=12, height=10)
         for c in categories:
             cat_list.insert("end", c)
@@ -1578,28 +1540,22 @@ class MassSenderApp:
         cat_list.selection_set(0)
         on_cat_select(None)
 
-        tpl_list = tk.Listbox(right, bg=THEME["bg_input"], fg=THEME["fg"],
-                              selectbackground=THEME["accent"],
-                              selectforeground="#ffffff",
-                              font=("Microsoft YaHei", 11),
-                              borderwidth=0, highlightthickness=0,
+        tpl_list = tk.Listbox(right, bg=THEME["bg_elevated"], fg=THEME["fg"],
+                              selectbackground=THEME["accent"], selectforeground="#ffffff",
+                              font=("Microsoft YaHei", 11), borderwidth=0, highlightthickness=0,
                               width=40, height=10)
         tpl_list.pack(fill="both", expand=True)
 
-        # 预览
         preview_var = tk.StringVar(value="")
-        preview_lbl = tk.Label(right, textvariable=preview_var,
-                               bg=THEME["bg_elevated"], fg=THEME["accent"],
-                               font=("Microsoft YaHei", 10), wraplength=400,
-                               justify="left", anchor="w", height=4)
+        preview_lbl = tk.Label(right, textvariable=preview_var, bg=THEME["bg_elevated"],
+                               fg=THEME["accent"], font=("Microsoft YaHei", 10),
+                               wraplength=400, justify="left", anchor="w", height=4)
         preview_lbl.pack(fill="x", pady=(10, 0))
 
         def on_tpl_select(_):
             sel = tpl_list.curselection()
-            if not sel:
-                return
-            txt = tpl_list.get(sel[0])
-            preview_var.set(txt.replace("{name}", "示例用户"))
+            if not sel: return
+            preview_var.set(tpl_list.get(sel[0]).replace("{name}", "示例用户"))
 
         tpl_list.bind("<<ListboxSelect>>", on_tpl_select)
 
@@ -1616,18 +1572,17 @@ class MassSenderApp:
 
         btn_row = ttk.Frame(outer)
         btn_row.pack(fill="x", pady=(14, 0))
-        DarkButton(btn_row, "使用此模板", command=use_template,
-                   style="accent", width=130, height=32).pack(side="right", padx=4)
+        DarkButton(btn_row, "使用此模板", command=use_template, style="accent",
+                   width=130, height=32, bg=THEME["bg"]).pack(side="right", padx=4)
         DarkButton(btn_row, "关闭", command=win.destroy,
-                   width=90, height=32).pack(side="right", padx=4)
+                   width=90, height=32, bg=THEME["bg"]).pack(side="right", padx=4)
 
 
-def main():
-    root = tk.Tk()
-    app = MassSenderApp(root)
-    app._log("请确认微信已登录并保持窗口可见", "info")
-    root.mainloop()
-
+# ============================================================
+# 入口
+# ============================================================
 
 if __name__ == "__main__":
-    main()
+    root = tk.Tk()
+    app = MassSenderApp(root)
+    root.mainloop()
