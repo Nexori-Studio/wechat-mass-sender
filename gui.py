@@ -294,8 +294,9 @@ class DarkText(scrolledtext.ScrolledText):
 
 class ProgressBar(tk.Canvas):
     def __init__(self, parent, width=200, height=8, **kw):
+        bg = kw.pop("bg", THEME["bg_elevated"])
         super().__init__(parent, width=width, height=height,
-                         bg=THEME["bg_elevated"], highlightthickness=0, bd=0, **kw)
+                         bg=bg, highlightthickness=0, bd=0, **kw)
         self._width = width
         self._height = height
         self._progress = 0.0
