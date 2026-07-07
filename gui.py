@@ -706,7 +706,7 @@ class MassSenderApp:
         tk.Label(delay_box, text="  随机", bg=THEME["bg_elevated"],
                  fg=THEME["fg_subtle"], font=("Microsoft YaHei", 9)).pack(side="left")
 
-        self.var_retry = tk.IntVar(value=self.config["retry"])
+        self.var_retry = tk.IntVar(value=self.config["max_retries"])
 
         row2 = tk.Frame(pad, bg=THEME["bg_elevated"])
         row2.pack(fill="x", pady=(8, 0))
@@ -1309,7 +1309,7 @@ class MassSenderApp:
             return None
         self.config.update({
             "min_delay": min_delay, "max_delay": max(max_delay, min_delay),
-            "retry": retry, "open_window_wait": open_wait, "send_wait": send_wait,
+            "max_retries": retry, "open_window_wait": open_wait, "send_wait": send_wait,
         })
         return self.config
 
