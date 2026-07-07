@@ -33,7 +33,7 @@ DEFAULT_CONFIG = {
 # ==================== 数据层 ====================
 
 def load_recipients(path):
-    """从 CSV 加载收件人列表。返回 list[dict]，字段：name, type, message, file"""
+    """从 CSV 加载收件人列表。返回 list[dict]，字段：name, type, message, file, schedule"""
     if not os.path.exists(path):
         return []
     recipients = []
@@ -50,11 +50,13 @@ def load_recipients(path):
                 rtype = "contact"
             message = row.get("message") or ""
             file_path = (row.get("file") or "").strip()
+            schedule = (row.get("schedule") or "").strip()
             recipients.append({
                 "name": name,
                 "type": rtype,
                 "message": message,
                 "file": file_path,
+                "schedule": schedule,
             })
     return recipients
 
@@ -62,7 +64,7 @@ def load_recipients(path):
 def save_recipients(path, recipients):
     """保存收件人列表到 CSV"""
     with open(path, "w", encoding="utf-8-sig", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["name", "type", "message", "file"])
+        writer = csv.DictWriter(f, fieldnames=["name", "type", "message", "file", "schedule"])
         writer.writeheader()
         for r in recipients:
             writer.writerow({
@@ -70,6 +72,7 @@ def save_recipients(path, recipients):
                 "type": r.get("type", "contact"),
                 "message": r.get("message", ""),
                 "file": r.get("file", ""),
+                "schedule": r.get("schedule", ""),
             })
 
 
@@ -81,6 +84,26 @@ def render_message(template, name):
 def has_attachment(recipient):
     """判断收件人是否带附件"""
     return bool((recipient.get("file") or "").strip())
+
+
+def parse_schedule(schedule_str):
+    """解析定时字符串 'HH:MM' 或 'YYYY-MM-DD HH:MM'，返回 datetime 或 None"""
+    from datetime import datetime
+    s = (schedule_str or "").strip()
+    if not s:
+        return None
+    for fmt in ("%Y-%m-%d %H:%M", "%Y/%m/%d %H:%M", "%m-%d %H:%M", "%H:%M"):
+        try:
+            if fmt == "%H:%M":
+                t = datetime.strptime(s, fmt)
+                today = datetime.now().replace(hour=t.hour, minute=t.minute, second=0, microsecond=0)
+                if today < datetime.now():
+                    today = today.replace(day=today.day + 1)
+                return today
+            return datetime.strptime(s, fmt)
+        except ValueError:
+            continue
+    return None
 
 
 def split_files(file_field):

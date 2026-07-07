@@ -26,7 +26,42 @@ from wechat_core import (
     has_attachment,
     split_files,
     check_files_exist,
+    parse_schedule,
 )
+
+
+# ============================================================
+# 内置消息模板库
+# ============================================================
+
+MESSAGE_TEMPLATES = {
+    "通用问候": [
+        "你好 {name}，祝你一切顺利！",
+        "Hi {name}，最近怎么样？",
+        "{name} 好呀，问候一下~",
+    ],
+    "节日祝福": [
+        "🎉 祝 {name} 节日快乐，万事如意！",
+        "🌸 {name}，愿你每一天都开心！",
+        "🎊 {name}，恭祝你心想事成！",
+    ],
+    "商务合作": [
+        "{name} 您好，关于我们的合作，期待与您进一步沟通。",
+        "{name} 您好，附件是相关资料，请查阅。",
+        "尊敬的 {name}，感谢您的关注与支持！",
+    ],
+    "客户回访": [
+        "{name} 您好，近期使用是否顺利？有什么问题随时联系我。",
+        "{name}，感谢您一直以来的支持！",
+        "{name}，温馨提醒：您的会员即将到期，欢迎续费~",
+    ],
+    "活动通知": [
+        "🎁 {name}，我们最新活动开始啦，点击查看详情！",
+        "{name}，限时优惠等你来抢，错过等一年！",
+        "📢 {name}，新功能上线，立即体验！",
+    ],
+    "自定义": [""],
+}
 
 # ============================================================
 # 主题：深色专业风（精美版）
@@ -556,6 +591,10 @@ class MassSenderApp:
         btn_box = ttk.Frame(title_bar, style="Card.TFrame")
         btn_box.pack(side="right")
 
+        self.btn_test = DarkButton(btn_box, "🧪 测试", command=self.test_one, width=80, height=28)
+        self.btn_test.pack(side="left", padx=2)
+        self.btn_tpl = DarkButton(btn_box, "📚 模板", command=self._open_template_picker, width=80, height=28)
+        self.btn_tpl.pack(side="left", padx=2)
         self.btn_add = DarkButton(btn_box, "➕ 添加", command=self.add_recipient, width=80, height=28)
         self.btn_add.pack(side="left", padx=2)
         self.btn_batch = DarkButton(btn_box, "📋 批量", command=self.batch_add, width=80, height=28)
@@ -568,16 +607,18 @@ class MassSenderApp:
         table_frame = ttk.Frame(card, style="Card.TFrame")
         table_frame.pack(fill="both", expand=True)
 
-        columns = ("name", "type", "message", "file")
+        columns = ("name", "type", "message", "file", "schedule")
         self.tree = ttk.Treeview(table_frame, columns=columns, show="headings", height=10)
         self.tree.heading("name", text="名称", anchor="w")
         self.tree.heading("type", text="类型", anchor="center")
         self.tree.heading("message", text="消息模板", anchor="w")
         self.tree.heading("file", text="附件", anchor="center")
-        self.tree.column("name", width=140, anchor="w", stretch=False)
-        self.tree.column("type", width=70, anchor="center", stretch=False)
-        self.tree.column("message", width=260, anchor="w")
+        self.tree.heading("schedule", text="定时", anchor="center")
+        self.tree.column("name", width=130, anchor="w", stretch=False)
+        self.tree.column("type", width=65, anchor="center", stretch=False)
+        self.tree.column("message", width=220, anchor="w")
         self.tree.column("file", width=70, anchor="center", stretch=False)
+        self.tree.column("schedule", width=90, anchor="center", stretch=False)
 
         vsb = ttk.Scrollbar(table_frame, orient="vertical", command=self.tree.yview,
                             style="Vertical.TScrollbar")
@@ -713,11 +754,14 @@ class MassSenderApp:
                     file_disp = f"📎x{len(attachments)}"
             else:
                 file_disp = "—"
+            schedule = r.get("schedule", "")
+            schedule_disp = f"⏰ {schedule}" if schedule else "—"
             self.tree.insert("", "end", values=(
                 r["name"],
                 type_map.get(r["type"], r["type"]),
                 r.get("message", ""),
                 file_disp,
+                schedule_disp,
             ), tags=(tag,))
         self.var_status.set(f"共 {len(self.recipients)} 位收件人")
 
@@ -786,7 +830,7 @@ class MassSenderApp:
         is_edit = idx is not None
         win = tk.Toplevel(self.root)
         win.title("编辑收件人" if is_edit else "添加收件人")
-        win.geometry("560x560")
+        win.geometry("620x700")
         win.resizable(False, False)
         win.configure(bg=THEME["bg"])
         win.transient(self.root)
@@ -805,23 +849,41 @@ class MassSenderApp:
                                   values=["contact", "group"])
         type_combo.grid(row=1, column=1, sticky="w", pady=6, padx=(12, 0))
 
+        # 消息模板
         ttk.Label(outer, text="消息模板").grid(row=2, column=0, sticky="nw", pady=(6, 0))
         msg_box = ttk.Frame(outer)
         msg_box.grid(row=2, column=1, sticky="we", pady=6, padx=(12, 0))
-        msg_text = DarkText(msg_box, width=42, height=6)
+        msg_text = DarkText(msg_box, width=42, height=5)
         msg_text.pack(fill="both", expand=True)
         if is_edit:
             msg_text.insert("1.0", self.recipients[idx].get("message", ""))
 
-        ttk.Label(outer, text="💡 可用 {name} 作为名称占位符",
-                  style="Muted.TLabel").grid(row=3, column=1, sticky="w", pady=(4, 0))
+        tpl_btn_row = ttk.Frame(outer)
+        tpl_btn_row.grid(row=3, column=1, sticky="w", padx=(12, 0), pady=(0, 0))
+
+        def pick_template():
+            self._open_template_picker(on_pick=lambda tpl: (
+                msg_text.delete("1.0", "end"), msg_text.insert("1.0", tpl)
+            ))
+
+        DarkButton(tpl_btn_row, "📚 套用模板库", command=pick_template, width=130, height=26).pack(side="left")
+        ttk.Label(tpl_btn_row, text="💡 可用 {name} 占位符",
+                  style="Muted.TLabel").pack(side="left", padx=8)
+
+        # 定时
+        ttk.Label(outer, text="定时").grid(row=4, column=0, sticky="w", pady=(8, 0))
+        schedule_box = ttk.Frame(outer)
+        schedule_box.grid(row=4, column=1, sticky="we", pady=(8, 0), padx=(12, 0))
+        var_schedule = tk.StringVar(value=self.recipients[idx].get("schedule", "") if is_edit else "")
+        DarkEntry(schedule_box, textvariable=var_schedule, width=24).pack(side="left")
+        ttk.Label(schedule_box, text="如：14:30 或 2026-07-15 14:30",
+                  style="Hint.TLabel").pack(side="left", padx=8)
 
         # 附件管理
-        ttk.Label(outer, text="附件").grid(row=4, column=0, sticky="nw", pady=(8, 0))
+        ttk.Label(outer, text="附件").grid(row=5, column=0, sticky="nw", pady=(8, 0))
         file_box = ttk.Frame(outer, style="Card.TFrame", padding=8)
-        file_box.grid(row=4, column=1, sticky="we", pady=(8, 0), padx=(12, 0))
+        file_box.grid(row=5, column=1, sticky="we", pady=(8, 0), padx=(12, 0))
 
-        # 文件列表展示
         files_var = tk.StringVar(value="")
         if is_edit:
             files_var.set(self.recipients[idx].get("file", ""))
@@ -850,7 +912,6 @@ class MassSenderApp:
                               wraplength=360, height=4)
         files_text.pack(side="top", fill="x", pady=(2, 6))
 
-        # 按钮行
         file_btn_row = ttk.Frame(file_box, style="Card.TFrame")
         file_btn_row.pack(fill="x")
 
@@ -874,21 +935,21 @@ class MassSenderApp:
             files_var.set("")
             refresh_files_display()
 
-        DarkButton(file_btn_row, "📁 选择文件", command=pick_files,
+        DarkButton(file_btn_row, "📁 多选文件", command=pick_files,
                    style="accent", width=110, height=28).pack(side="left", padx=2)
-        DarkButton(file_btn_row, "🗑 清空附件", command=clear_files,
-                   width=110, height=28).pack(side="left", padx=2)
+        DarkButton(file_btn_row, "🗑 清空", command=clear_files,
+                   width=80, height=28).pack(side="left", padx=2)
 
-        ttk.Label(file_box, text="💡 支持多文件，用 | 分隔；图片/文件均可发送",
+        ttk.Label(file_box, text="💡 多个附件将按顺序逐个发送（图片轮播）",
                   style="Hint.TLabel").pack(anchor="w", pady=(6, 0))
 
         refresh_files_display()
 
         # 预览
-        ttk.Label(outer, text="预览").grid(row=5, column=0, sticky="nw", pady=(8, 0))
+        ttk.Label(outer, text="预览").grid(row=6, column=0, sticky="nw", pady=(8, 0))
         preview_var = tk.StringVar(value="")
         preview_box = ttk.Frame(outer, style="Card.TFrame", padding=10)
-        preview_box.grid(row=5, column=1, sticky="we", pady=(8, 0), padx=(12, 0))
+        preview_box.grid(row=6, column=1, sticky="we", pady=(8, 0), padx=(12, 0))
         preview_lbl = tk.Label(preview_box, textvariable=preview_var,
                                bg=THEME["bg_elevated"], fg=THEME["accent"],
                                font=("Microsoft YaHei", 10), wraplength=380,
@@ -905,17 +966,23 @@ class MassSenderApp:
         update_preview()
 
         btn_frame = ttk.Frame(outer)
-        btn_frame.grid(row=6, column=0, columnspan=2, pady=(20, 0))
+        btn_frame.grid(row=7, column=0, columnspan=2, pady=(20, 0))
 
         def on_save():
             name = var_name.get().strip()
             rtype = var_type.get().strip() or "contact"
             message = msg_text.get("1.0", "end-1c")
             files = files_var.get().strip()
+            schedule = var_schedule.get().strip()
+            if schedule:
+                if parse_schedule(schedule) is None:
+                    Toast(win, "定时格式错误，正确示例：14:30 或 2026-07-15 14:30", "error")
+                    return
             if not name:
                 Toast(win, "名称不能为空", "error")
                 return
-            data = {"name": name, "type": rtype, "message": message, "file": files}
+            data = {"name": name, "type": rtype, "message": message,
+                    "file": files, "schedule": schedule}
             if is_edit:
                 self.recipients[idx] = data
             else:
@@ -928,13 +995,15 @@ class MassSenderApp:
         DarkButton(btn_frame, "取消", command=win.destroy, width=90, height=32).pack(side="right", padx=4)
 
     def _open_batch_editor(self):
-        """批量添加弹窗：
-        上方：选择文件/图片（应用到全部收件人）
-        下方：表格批量输入收件人（每行：类型 + 名称 + 消息）
+        """批量添加弹窗（重写版）：
+        - 统一消息模板（支持模板库）
+        - 统一附件（多文件轮播）
+        - 收件人表格：双击/编辑行可弹出可编辑弹窗
+        - 支持批量粘贴导入、剪贴板导入
         """
         win = tk.Toplevel(self.root)
         win.title("批量添加收件人")
-        win.geometry("780x600")
+        win.geometry("860x680")
         win.configure(bg=THEME["bg"])
         win.transient(self.root)
         win.grab_set()
@@ -942,11 +1011,28 @@ class MassSenderApp:
         outer = ttk.Frame(win, padding=14)
         outer.pack(fill="both", expand=True)
 
-        # 顶部：通用附件设置
-        top_box = ttk.Frame(outer, style="Card.TFrame", padding=10)
-        top_box.pack(fill="x", pady=(0, 10))
+        # ===== 顶部：通用消息模板 =====
+        msg_card = ttk.Frame(outer, style="Card.TFrame", padding=10)
+        msg_card.pack(fill="x", pady=(0, 10))
 
-        ttk.Label(top_box, text="统一附件（可选）", style="CardTitle.TLabel").pack(anchor="w", pady=(0, 6))
+        head_row = ttk.Frame(msg_card, style="Card.TFrame")
+        head_row.pack(fill="x")
+        ttk.Label(head_row, text="统一消息模板", style="CardTitle.TLabel").pack(side="left")
+        DarkButton(head_row, "📚 模板库", command=lambda: self._open_template_picker(
+            on_pick=lambda tpl: (batch_msg_text.delete("1.0", "end"), batch_msg_text.insert("1.0", tpl))
+        ), width=100, height=24).pack(side="right")
+
+        batch_msg_text = DarkText(msg_card, height=4)
+        batch_msg_text.pack(fill="x", pady=(6, 4))
+        batch_msg_text.insert("1.0", "你好 {name}，这是一条群发消息。")
+        ttk.Label(msg_card, text="💡 可用 {name} 占位符，发送给每个收件人时自动替换",
+                  style="Hint.TLabel").pack(anchor="w")
+
+        # ===== 中部：统一附件 =====
+        file_card = ttk.Frame(outer, style="Card.TFrame", padding=10)
+        file_card.pack(fill="x", pady=(0, 10))
+
+        ttk.Label(file_card, text="统一附件（多图轮播）", style="CardTitle.TLabel").pack(anchor="w")
 
         batch_files_var = tk.StringVar(value="")
         batch_files_display = tk.StringVar(value="(无附件)")
@@ -981,9 +1067,8 @@ class MassSenderApp:
             batch_files_var.set("")
             refresh_batch_files()
 
-        info_row = ttk.Frame(top_box, style="Card.TFrame")
-        info_row.pack(fill="x")
-
+        info_row = ttk.Frame(file_card, style="Card.TFrame")
+        info_row.pack(fill="x", pady=(6, 0))
         count_lbl = tk.Label(info_row, textvariable=batch_files_count,
                              bg=THEME["bg_elevated"], fg=THEME["accent"],
                              font=("Microsoft YaHei", 9, "bold"))
@@ -993,69 +1078,128 @@ class MassSenderApp:
                              font=("Consolas", 9), anchor="w")
         files_lbl.pack(side="left", fill="x", expand=True)
 
-        btn_row = ttk.Frame(top_box, style="Card.TFrame")
-        btn_row.pack(fill="x", pady=(6, 0))
-        DarkButton(btn_row, "📁 选择文件", command=pick_batch_files,
+        fbtn_row = ttk.Frame(file_card, style="Card.TFrame")
+        fbtn_row.pack(fill="x", pady=(4, 0))
+        DarkButton(fbtn_row, "📁 多选文件", command=pick_batch_files,
                    style="accent", width=110, height=28).pack(side="left", padx=2)
-        DarkButton(btn_row, "🗑 清空", command=clear_batch_files,
+        DarkButton(fbtn_row, "🗑 清空", command=clear_batch_files,
                    width=80, height=28).pack(side="left", padx=2)
-        ttk.Label(btn_row, text="💡 选中的文件/图片将作为附件，发送给下方所有收件人",
-                  style="Hint.TLabel").pack(side="left", padx=10)
 
-        # 中间：批量输入表格
-        mid_box = ttk.Frame(outer, style="Card.TFrame", padding=10)
-        mid_box.pack(fill="both", expand=True)
+        # ===== 下部：收件人表格 =====
+        list_card = ttk.Frame(outer, style="Card.TFrame", padding=10)
+        list_card.pack(fill="both", expand=True)
 
-        ttk.Label(mid_box, text="收件人列表（每行一个）", style="CardTitle.TLabel").pack(anchor="w", pady=(0, 6))
+        list_head = ttk.Frame(list_card, style="Card.TFrame")
+        list_head.pack(fill="x")
+        ttk.Label(list_head, text="收件人列表", style="CardTitle.TLabel").pack(side="left")
+        ttk.Label(list_head, text="双击编辑 / 右键删除", style="Hint.TLabel").pack(side="left", padx=10)
 
-        # 通用消息模板
-        ttk.Label(mid_box, text="通用消息模板:", style="CardMuted.TLabel").pack(anchor="w")
-        batch_msg_text = DarkText(mid_box, height=4)
-        batch_msg_text.pack(fill="x", pady=(2, 8))
-        batch_msg_text.insert("1.0", "你好 {name}，这是一条群发消息。")
-
-        # 表格
-        columns = ("type", "name")
-        batch_tree = ttk.Treeview(mid_box, columns=columns, show="headings", height=8)
+        columns = ("idx", "type", "name", "schedule")
+        batch_tree = ttk.Treeview(list_card, columns=columns, show="headings", height=8)
+        batch_tree.heading("idx", text="#", anchor="center")
         batch_tree.heading("type", text="类型", anchor="center")
         batch_tree.heading("name", text="名称", anchor="w")
-        batch_tree.column("type", width=80, anchor="center", stretch=False)
-        batch_tree.column("name", width=580, anchor="w")
+        batch_tree.heading("schedule", text="定时", anchor="center")
+        batch_tree.column("idx", width=40, anchor="center", stretch=False)
+        batch_tree.column("type", width=70, anchor="center", stretch=False)
+        batch_tree.column("name", width=380, anchor="w")
+        batch_tree.column("schedule", width=140, anchor="center", stretch=False)
 
         # 预填 3 行
-        for _ in range(3):
-            batch_tree.insert("", "end", values=("contact", ""))
+        for i in range(1, 4):
+            batch_tree.insert("", "end", iid=str(i), values=(i, "contact", "", ""))
 
-        vsb = ttk.Scrollbar(mid_box, orient="vertical", command=batch_tree.yview,
+        vsb = ttk.Scrollbar(list_card, orient="vertical", command=batch_tree.yview,
                             style="Vertical.TScrollbar")
         batch_tree.configure(yscrollcommand=vsb.set)
-        batch_tree.pack(side="left", fill="both", expand=True)
-        vsb.pack(side="right", fill="y")
+        batch_tree.pack(side="left", fill="both", expand=True, pady=(6, 0))
+        vsb.pack(side="right", fill="y", pady=(6, 0))
 
-        # 类型双击切换
-        def on_double_click(event):
-            item = batch_tree.identify_row(event.y)
-            if not item:
-                return
-            col = batch_tree.identify_column(event.x)
-            if col == "#1":  # 类型列
+        def refresh_indices():
+            for i, item in enumerate(batch_tree.get_children(), start=1):
                 vals = list(batch_tree.item(item, "values"))
-                vals[0] = "group" if vals[0] == "contact" else "contact"
+                vals[0] = i
                 batch_tree.item(item, values=vals)
 
-        batch_tree.bind("<Double-1>", on_double_click)
+        def _edit_row(item_id):
+            """弹出可编辑弹窗编辑一行收件人"""
+            vals = list(batch_tree.item(item_id, "values"))
+            # vals: [idx, type, name, schedule]
+            edit = tk.Toplevel(win)
+            edit.title("编辑收件人")
+            edit.geometry("460x320")
+            edit.configure(bg=THEME["bg"])
+            edit.transient(win)
+            edit.grab_set()
 
-        # 表格按钮
+            ef = ttk.Frame(edit, padding=16)
+            ef.pack(fill="both", expand=True)
+            ef.columnconfigure(1, weight=1)
+
+            ttk.Label(ef, text="名称").grid(row=0, column=0, sticky="w", pady=8)
+            v_name = tk.StringVar(value=vals[2])
+            DarkEntry(ef, textvariable=v_name, width=32).grid(row=0, column=1, sticky="we", padx=(12, 0), pady=8)
+
+            ttk.Label(ef, text="类型").grid(row=1, column=0, sticky="w", pady=8)
+            v_type = tk.StringVar(value=vals[1] if vals[1] in ("contact", "group") else "contact")
+            ttk.Combobox(ef, textvariable=v_type, state="readonly", width=12,
+                         values=["contact", "group"]).grid(row=1, column=1, sticky="w", padx=(12, 0), pady=8)
+
+            ttk.Label(ef, text="定时").grid(row=2, column=0, sticky="w", pady=8)
+            v_sched = tk.StringVar(value=vals[3] if len(vals) > 3 else "")
+            DarkEntry(ef, textvariable=v_sched, width=24).grid(row=2, column=1, sticky="we", padx=(12, 0), pady=8)
+            ttk.Label(ef, text="格式：14:30 或 2026-07-15 14:30（留空表示立即发送）",
+                      style="Hint.TLabel").grid(row=3, column=1, sticky="w", padx=(12, 0))
+
+            btn_row = ttk.Frame(ef)
+            btn_row.grid(row=4, column=0, columnspan=2, pady=(20, 0), sticky="e")
+
+            def save_row():
+                nm = v_name.get().strip()
+                if not nm:
+                    Toast(edit, "名称不能为空", "error")
+                    return
+                tp = v_type.get() if v_type.get() in ("contact", "group") else "contact"
+                sc = v_sched.get().strip()
+                if sc:
+                    if parse_schedule(sc) is None:
+                        Toast(edit, "定时格式错误", "error")
+                        return
+                batch_tree.item(item_id, values=(vals[0], tp, nm, sc))
+                edit.destroy()
+
+            DarkButton(btn_row, "保存", command=save_row, style="accent", width=90, height=30).pack(side="right", padx=4)
+            DarkButton(btn_row, "取消", command=edit.destroy, width=90, height=30).pack(side="right", padx=4)
+
+        batch_tree.bind("<Double-1>", lambda e: (
+            _edit_row(batch_tree.focus()) if batch_tree.focus() else None
+        ))
+
+        def on_right_click(event):
+            item = batch_tree.identify_row(event.y)
+            if item:
+                batch_tree.selection_set(item)
+                menu = tk.Menu(win, tearoff=0)
+                menu.add_command(label="✏️ 编辑", command=lambda: _edit_row(item))
+                menu.add_command(label="🗑 删除", command=lambda: (batch_tree.delete(item), refresh_indices()))
+                menu.tk_popup(event.x_root, event.y_root)
+
+        batch_tree.bind("<Button-3>", on_right_click)
+
+        # ===== 表格按钮 =====
         tree_btn_row = ttk.Frame(outer)
         tree_btn_row.pack(fill="x", pady=(8, 0))
 
         def add_row():
-            batch_tree.insert("", "end", values=("contact", ""))
+            iid = batch_tree.insert("", "end", values=("", "contact", "", ""))
+            refresh_indices()
+            _edit_row(iid)
 
         def del_row():
             sel = batch_tree.selection()
             for item in sel:
                 batch_tree.delete(item)
+            refresh_indices()
 
         def batch_import():
             """从剪贴板批量导入（每行一个名称）"""
@@ -1066,16 +1210,16 @@ class MassSenderApp:
                     Toast(win, "剪贴板为空", "warn")
                     return
                 # 清掉现有空行
-                for item in batch_tree.get_children():
+                for item in list(batch_tree.get_children()):
                     vals = batch_tree.item(item, "values")
-                    if not vals[1].strip():
+                    if not vals[2].strip():
                         batch_tree.delete(item)
                 # 添加
                 lines = [l.strip() for l in text.splitlines() if l.strip()]
                 for line in lines:
-                    # 自动判断类型
                     rtype = "group" if (line.endswith("群") or line.endswith("Group")) else "contact"
-                    batch_tree.insert("", "end", values=(rtype, line))
+                    batch_tree.insert("", "end", values=("", rtype, line, ""))
+                refresh_indices()
                 Toast(win, f"从剪贴板导入 {len(lines)} 条", "success")
             except Exception as e:
                 Toast(win, f"导入失败: {e}", "error")
@@ -1086,10 +1230,8 @@ class MassSenderApp:
                    width=80, height=28).pack(side="left", padx=2)
         DarkButton(tree_btn_row, "📋 从剪贴板导入", command=batch_import,
                    style="accent", width=140, height=28).pack(side="left", padx=2)
-        ttk.Label(tree_btn_row, text="💡 双击类型列切换 联系人/群聊",
-                  style="Hint.TLabel").pack(side="left", padx=10)
 
-        # 底部：保存/取消
+        # ===== 底部 =====
         bottom_btn_row = ttk.Frame(outer)
         bottom_btn_row.pack(fill="x", pady=(14, 0))
 
@@ -1097,10 +1239,10 @@ class MassSenderApp:
             template = batch_msg_text.get("1.0", "end-1c")
             files = batch_files_var.get().strip()
             added = 0
-            skipped = 0
             for item in batch_tree.get_children():
                 vals = batch_tree.item(item, "values")
-                rtype, name = vals[0], vals[1].strip()
+                rtype, name = vals[1], vals[2].strip()
+                schedule = vals[3] if len(vals) > 3 else ""
                 if not name:
                     continue
                 self.recipients.append({
@@ -1108,6 +1250,7 @@ class MassSenderApp:
                     "type": rtype if rtype in ("contact", "group") else "contact",
                     "message": template,
                     "file": files,
+                    "schedule": schedule,
                 })
                 added += 1
             self._refresh_tree()
@@ -1250,6 +1393,7 @@ class MassSenderApp:
             Toast(self.root, "正在停止发送", "warn")
 
     def _send_worker(self, config):
+        from datetime import datetime
         total = len(self.recipients)
         success, failed = [], []
 
@@ -1258,9 +1402,30 @@ class MassSenderApp:
                 self._log("已手动停止", "warn")
                 break
 
+            # 定时：到达指定时间再发送
+            schedule_str = r.get("schedule", "")
+            if schedule_str:
+                target = parse_schedule(schedule_str)
+                if target:
+                    now = datetime.now()
+                    if target > now:
+                        wait_sec = (target - now).total_seconds()
+                        self._log(f"⏰ 等待到 {target.strftime('%Y-%m-%d %H:%M:%S')} 发送 {r['name']}（还需 {int(wait_sec)} 秒）", "warn")
+                        # 分片等待，响应停止
+                        while datetime.now() < target:
+                            if self.stop_flag:
+                                self._log("定时等待中被手动停止", "warn")
+                                break
+                            time.sleep(min(1.0, (target - datetime.now()).total_seconds()))
+                        if self.stop_flag:
+                            break
+
             self._update_progress(idx - 1, total)
 
             tag = "群聊" if r["type"] == "group" else "联系人"
+            attachments = split_files(r.get("file", ""))
+            if attachments:
+                tag += f" 📎x{len(attachments)}"
             self._log(f"({idx}/{total}) [{tag}] {r['name']} ...", "info")
 
             ok, info = send_with_retry(r, config, lambda m: self._log(m, "info"))
@@ -1312,6 +1477,149 @@ class MassSenderApp:
             self.indicator.set_state("ready" if hwnd else "idle")
 
         self.root.after(0, _update)
+
+    # ---------------- 单条测试发送 ----------------
+
+    def test_one(self):
+        """向当前选中的收件人发送一次（不进入群发队列）"""
+        if self.sending:
+            Toast(self.root, "群发进行中，请先停止", "warn")
+            return
+        idx = self._selected_index()
+        if idx < 0:
+            Toast(self.root, "请先选择一位收件人", "warn")
+            return
+        config = self._collect_config()
+        if config is None:
+            return
+        hwnd, _ = find_wechat_window()
+        if not hwnd:
+            Toast(self.root, "未找到微信窗口", "error")
+            return
+        r = self.recipients[idx]
+        if not messagebox.askyesno("测试发送", f"确定向 [{r['type']}] {r['name']} 发送一次测试消息？"):
+            return
+        self.sending = True
+        self.btn_send.configure_state(False)
+        self.btn_test.configure_state(False)
+        self.indicator.set_state("running")
+        self._log(f"🧪 测试发送 → {r['name']}", "highlight")
+        if not activate_wechat(lambda m: self._log(m, "info")):
+            self._log("测试失败：无法激活微信窗口", "error")
+            self._finish_send()
+            return
+        for i in range(3, 0, -1):
+            self._log(f"{i} 秒后开始测试...", "warn")
+            self.root.update()
+            time.sleep(1)
+        t = threading.Thread(target=self._test_worker, args=(r, config), daemon=True)
+        t.start()
+
+    def _test_worker(self, recipient, config):
+        ok, info = send_with_retry(recipient, config, lambda m: self._log(m, "info"))
+        if ok:
+            self._log(f"🧪 测试成功: {info}", "success")
+            Toast(self.root, f"测试发送成功：{recipient['name']}", "success")
+        else:
+            self._log(f"🧪 测试失败: {info}", "error")
+            Toast(self.root, f"测试失败：{info}", "error")
+        self._finish_send()
+
+    # ---------------- 消息模板库 ----------------
+
+    def _open_template_picker(self, on_pick=None):
+        """打开消息模板选择弹窗。on_pick: 选中后回调 (template_text)"""
+        win = tk.Toplevel(self.root)
+        win.title("消息模板库")
+        win.geometry("560x520")
+        win.configure(bg=THEME["bg"])
+        win.transient(self.root)
+        win.grab_set()
+
+        outer = ttk.Frame(win, padding=14)
+        outer.pack(fill="both", expand=True)
+
+        ttk.Label(outer, text="📚 消息模板库", style="Title.TLabel").pack(anchor="w", pady=(0, 4))
+        ttk.Label(outer, text="选择分类查看模板，点击「使用此模板」插入到消息框",
+                  style="Muted.TLabel").pack(anchor="w", pady=(0, 10))
+
+        # 左侧分类
+        body = ttk.Frame(outer)
+        body.pack(fill="both", expand=True)
+
+        left = ttk.Frame(body, style="Card.TFrame", padding=8)
+        left.pack(side="left", fill="y")
+
+        right = ttk.Frame(body, style="Card.TFrame", padding=10)
+        right.pack(side="left", fill="both", expand=True, padx=(10, 0))
+
+        categories = list(MESSAGE_TEMPLATES.keys())
+
+        def on_cat_select(_):
+            sel = cat_list.curselection()
+            if not sel:
+                return
+            cat = categories[sel[0]]
+            templates = MESSAGE_TEMPLATES[cat]
+            tpl_list.delete(0, "end")
+            for t in templates:
+                tpl_list.insert("end", t if t else "(自定义)")
+
+        cat_list = tk.Listbox(left, bg=THEME["bg_input"], fg=THEME["fg"],
+                              selectbackground=THEME["accent"],
+                              selectforeground="#ffffff",
+                              font=("Microsoft YaHei", 11),
+                              borderwidth=0, highlightthickness=0,
+                              width=12, height=10)
+        for c in categories:
+            cat_list.insert("end", c)
+        cat_list.pack(fill="both", expand=True)
+        cat_list.bind("<<ListboxSelect>>", on_cat_select)
+        cat_list.selection_set(0)
+        on_cat_select(None)
+
+        tpl_list = tk.Listbox(right, bg=THEME["bg_input"], fg=THEME["fg"],
+                              selectbackground=THEME["accent"],
+                              selectforeground="#ffffff",
+                              font=("Microsoft YaHei", 11),
+                              borderwidth=0, highlightthickness=0,
+                              width=40, height=10)
+        tpl_list.pack(fill="both", expand=True)
+
+        # 预览
+        preview_var = tk.StringVar(value="")
+        preview_lbl = tk.Label(right, textvariable=preview_var,
+                               bg=THEME["bg_elevated"], fg=THEME["accent"],
+                               font=("Microsoft YaHei", 10), wraplength=400,
+                               justify="left", anchor="w", height=4)
+        preview_lbl.pack(fill="x", pady=(10, 0))
+
+        def on_tpl_select(_):
+            sel = tpl_list.curselection()
+            if not sel:
+                return
+            txt = tpl_list.get(sel[0])
+            preview_var.set(txt.replace("{name}", "示例用户"))
+
+        tpl_list.bind("<<ListboxSelect>>", on_tpl_select)
+
+        def use_template():
+            sel = tpl_list.curselection()
+            if not sel:
+                Toast(win, "请先选择一个模板", "warn")
+                return
+            txt = tpl_list.get(sel[0])
+            if on_pick:
+                on_pick(txt)
+                Toast(win, "已套用模板", "success")
+            win.destroy()
+
+        btn_row = ttk.Frame(outer)
+        btn_row.pack(fill="x", pady=(14, 0))
+        DarkButton(btn_row, "使用此模板", command=use_template,
+                   style="accent", width=130, height=32).pack(side="right", padx=4)
+        DarkButton(btn_row, "关闭", command=win.destroy,
+                   width=90, height=32).pack(side="right", padx=4)
 
 
 def main():
