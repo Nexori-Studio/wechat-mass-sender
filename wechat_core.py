@@ -27,6 +27,8 @@ DEFAULT_CONFIG = {
     "max_retries": 2,
     "click_x_ratio": 0.5,
     "click_y_ratio": 0.85,
+    "open_window_wait": 1.5,
+    "send_wait": 1.0,
 }
 
 
